@@ -7,7 +7,7 @@ const bn=n=>Number(n).toLocaleString('bn-IN',{maximumFractionDigits:2}), money=n
 const start=()=>({products:[],sales:[],shop:{name:'Tarafdar Telecom',web:'www.emadulai.in',address:'',email:'',phone:'',logo:''}});
 let state=start(),page=0,filter='',query='',cart=[],draft={},noticeTimer;
 function notify(t){$('#toast').textContent=t;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('#toast').textContent='',3500)}
-const nav=(p,f='')=>{page=p;filter=f;query='';$('aside').classList.remove('open');render();scrollTo(0,0)};
+const nav=(p,f='')=>{if(correction && page===1 && p!==1){if(!confirm('সংশোধন সংরক্ষণ না করে বেরোবেন?'))return;endCorrection()}page=p;filter=f;query='';$('aside').classList.remove('open');render();scrollTo(0,0)};
 const button=(label,fn,cls='')=>'<button type="button" class="'+cls+'" onclick="'+fn+'">'+label+'</button>';
 const tile=(k,c='')=>'<span class="tile '+c+'">'+ic(k)+'</span>', empty=(k,t)=>'<div class="empty">'+ic(k)+esc(t)+'</div>';
 const heading=(t,action='')=>'<div class="title"><h1>'+t+'</h1>'+action+'</div>';
@@ -42,15 +42,15 @@ function paise(n){let v=Math.round(Number(n)*100);if(!Number.isSafeInteger(v)||v
 async function submit(form,fn){let b=form.querySelector('button.primary');if(b.disabled)return;b.disabled=true;try{await fn(new FormData(form))}catch(e){alert(e.message)}finally{b.disabled=false}}
 async function upload(file,old){if(!file?.size)return old||'';if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>5000000)throw Error('৫ MB-এর মধ্যে PNG, JPG বা WebP লোগো দিন');let img=await createImageBitmap(file),scale=Math.min(1,180/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);img.close();return c.toDataURL('image/png')}
 function settings(){let s=state.shop;return heading('দোকানের সেটিংস')+'<section class="panel"><h2>রসিদের জন্য দোকানের তথ্য</h2><form id="profile"><div class="formgrid">'+field('name','দোকানের নাম',s.name,'required')+field('phone','মোবাইল নম্বর ১',s.phone,'','tel')+field('phone2','মোবাইল নম্বর ২ (ঐচ্ছিক)',s.phone2,'','tel')+field('email','ইমেল',s.email,'','email')+field('web','ওয়েবসাইট',s.web)+field('address','দোকানের ঠিকানা',s.address)+field('receiptNote','সব নতুন রসিদের নিচের লেখা',s.receiptNote??defaultReceiptNote,'maxlength="500"')+'<label>দোকানের লোগো<input name="logo" type="file" accept="image/png,image/jpeg,image/webp"></label><label class="full storefront-choice"><input type="checkbox" name="printStorefront" '+(s.printStorefront!==false?'checked':'')+'> রসিদে ড্যাশবোর্ডের দোকানের ছবি দেখান</label></div><button class="primary">সংরক্ষণ করুন</button></form></section><br><section class="panel"><h2>হিসাবের ব্যাকআপ</h2><p>হিসাব আপনার অ্যাডমিন অ্যাকাউন্টের ডেটাবেসে থাকে। নিয়মিত ব্যাকআপ ডাউনলোড করুন।</p><div class="actions">'+button('ব্যাকআপ ডাউনলোড','backup()')+'<label>ব্যাকআপ ফেরান<input type="file" accept=".json" onchange="restore(this)"></label></div></section>'}
-function bill(){return heading('নতুন বিল')+'<div class="layoutbill"><section class="panel"><h2>পণ্য ও সার্ভিস বাছুন</h2>'+masterPanel()+'<h3>নিজস্ব পণ্য ও স্টক</h3><input placeholder="পণ্য বা সার্ভিস খুঁজুন…" aria-label="পণ্য খুঁজুন" oninput="catalog(this.value)"><div id="catalog"></div><hr><h3>কাস্টম সার্ভিস</h3><form id="custom">'+field('name','সার্ভিসের নাম','','required maxlength="100"')+field('price','দাম (₹)','','required min="0" max="99999999" step=".01"','number')+'<button>বিলে যোগ করুন</button></form></section><section class="panel"><h2>বিলের বিবরণ</h2><div id="lines"></div><form id="checkout"><div class="formgrid">'+field('name','কাস্টমারের নাম',draft.name,'required maxlength="100"')+field('phone','মোবাইল নম্বর (ঐচ্ছিক)',draft.phone,'pattern="[0-9]{10}" title="১০ সংখ্যার মোবাইল নম্বর" inputmode="numeric"','tel')+billAddressFields()+'<label>পেমেন্ট মোড<select name="mode">'+options(['Cash','COD','UPI'],draft.mode)+'</select></label>'+field('paid','পরিশোধিত টাকা (₹)',draft.paid??'','min="0" step=".01"','number')+'</div>'+field('receiptNote','রসিদের নিচের লেখা',draft.receiptNote??state.shop.receiptNote??defaultReceiptNote,'maxlength="500"')+'<p id="due"></p><button class="primary">ইনভয়েস তৈরি করুন</button></form></section></div>'}
+function bill(){return heading(correction?'বিল সংশোধন · '+esc(correction.original.no):'নতুন বিল', correction?button('বাতিল','nav(4)'):'')+'<div class="layoutbill"><section class="panel"><h2>পণ্য ও সার্ভিস বাছুন</h2>'+masterPanel()+'<h3>নিজস্ব পণ্য ও স্টক</h3><input placeholder="পণ্য বা সার্ভিস খুঁজুন…" aria-label="পণ্য খুঁজুন" oninput="catalog(this.value)"><div id="catalog"></div><hr><h3>কাস্টম সার্ভিস</h3><form id="custom">'+field('name','সার্ভিসের নাম','','required maxlength="100"')+field('price','দাম (₹)','','required min="0" max="99999999" step=".01"','number')+'<button>বিলে যোগ করুন</button></form></section><section class="panel"><h2>বিলের বিবরণ</h2><div id="lines"></div><form id="checkout"><div class="formgrid">'+field('name','কাস্টমারের নাম',draft.name,'required maxlength="100"')+field('phone','মোবাইল নম্বর (ঐচ্ছিক)',draft.phone,'pattern="[0-9]{10}" title="১০ সংখ্যার মোবাইল নম্বর" inputmode="numeric"','tel')+billAddressFields()+ownerField(draft.ownerId)+'<label>পেমেন্ট মোড<select name="mode">'+options(['Cash','COD','UPI'],draft.mode)+'</select></label>'+field('paid','পরিশোধিত টাকা (₹)',draft.paid??'','min="0" step=".01"','number')+'</div>'+field('receiptNote','রসিদের নিচের লেখা',draft.receiptNote??state.shop.receiptNote??defaultReceiptNote,'maxlength="500"')+'<p id="due"></p><button class="primary">'+(correction?'সংশোধন সংরক্ষণ করুন':'ইনভয়েস তৈরি করুন')+'</button></form></section></div>'}
 function catalog(q=''){let ps=state.products.filter(p=>productMatches(p,q.toLowerCase()));$('#catalog').innerHTML=ps.map(p=>'<div class="listrow"><div>'+esc(p.name)+productDescription(p)+'<small>'+money(p.price)+' · '+esc(p.cat)+'</small></div>'+button('যোগ করুন',"addItem('"+p.id+"')")+'</div>').join('')||empty('box','পণ্য ও সার্ভিস বিভাগে আইটেম যোগ করুন বা কাস্টম সার্ভিস লিখুন।')}
-function addItem(key){let p=state.products.find(x=>x.id===key),l=cart.find(x=>x.product===key);if(p.stock!==null&&(l?.qty||0)>=p.stock)return notify('পর্যাপ্ত স্টক নেই');if(l)l.qty++;else cart.push({product:key,name:p.name,price:p.price,qty:1,sourceName:p.name,sourcePrice:p.price});lines()}
+function addItem(key){let p=state.products.find(x=>x.id===key),l=cart.find(x=>x.product===key);if(!p)return notify('পণ্যটি আর তালিকায় নেই');if(p.stock!==null&&(l?.qty||0)>=p.stock+(correction?productUnits(correction.original.lines,key):0))return notify('পর্যাপ্ত স্টক নেই');if(l)l.qty++;else cart.push({product:key,name:p.name,price:p.price,qty:1,sourceName:p.name,sourcePrice:p.price});lines()}
 const total=()=>cart.reduce((n,l)=>n+l.price*l.qty,0);
 function lines(){ if(!cart.some(l=>l.pvc)) cart=cart.filter(l=>!l.delivery); $('#lines').innerHTML=cart.map((l,i)=>'<div class="listrow"><div>'+esc(l.name)+lineDetails(l)+'<small>'+money(l.price)+' × '+bn(l.qty)+'</small></div><div>'+button('বদলান','editBillLine('+i+')')+' '+button('−','adjust('+i+',-1)')+' '+(l.delivery?'':button('+','adjust('+i+',1)'))+'</div></div>').join('')+deliveryControl()+'<h3>মোট '+money(total())+'</h3>';due()}
 function adjust(i,d){if(cart[i].delivery){if(d<0)setDelivery('0');return}if(d===1&&cart[i].product)return addItem(cart[i].product);cart[i].qty+=d;if(!cart[i].qty)cart.splice(i,1);lines()}
 function due(){let p=$('#checkout').elements.paid;p.max=total()/100;$('#due').textContent='বাকি '+money(total()-Math.round((Number(p.value)||0)*100))}
 function commitBill(data,sale){if(!sale.lines.length)throw Error('বিলে অন্তত একটি আইটেম যোগ করুন');if(sale.paid>sale.total)throw Error('পরিশোধিত টাকা মোট বিলের চেয়ে বেশি');for(let l of sale.lines){if(!l.product)continue;let p=data.products.find(p=>p.id===l.product);if(!p||p.price!==(l.sourcePrice??l.price)||p.name!==(l.sourceName??l.name))throw Error('পণ্য বদলেছে। বিল থেকে বাদ দিয়ে আবার যোগ করুন।');if(p.stock!==null){if(p.stock<l.qty)throw Error(l.name+' পর্যাপ্ত স্টক নেই');p.stock-=l.qty}}sale.no='TT-'+String(data.sales.length+1).padStart(5,'0');sale.shop={...data.shop};data.sales.push(sale)}
-function bindBill(){bindMaster();catalog();lines();$('#custom').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target);try{cart.push({product:null,name:required(f,'name'),price:paise(f.get('price')),qty:1});lines();e.target.reset()}catch(err){notify(err.message)}};$('#checkout').oninput=e=>{draft=Object.fromEntries(new FormData(e.currentTarget));due()};$('#checkout').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let sale={id:id(),at:new Date().toISOString(),name:required(f,'name'),phone:f.get('phone'),address:f.get('address').trim(),addressParts:readAddress(f),receiptNote:String(f.get('receiptNote')??'').trim(),mode:f.get('mode'),paid:paise(f.get('paid')),total:total(),lines:structuredClone(cart)};await change(d=>commitBill(d,sale));cart=[];draft={};nav(4);showSale(sale.id)})}}
+function bindBill(){bindMaster();catalog();lines();$('#custom').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target);try{cart.push({product:null,name:required(f,'name'),price:paise(f.get('price')),qty:1});lines();e.target.reset()}catch(err){notify(err.message)}};$('#checkout').oninput=e=>{draft=Object.fromEntries(new FormData(e.currentTarget));due()};$('#checkout').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let sale={id:id(),at:new Date().toISOString(),name:required(f,'name'),ownerId:billingOwner(f),phone:f.get('phone'),address:f.get('address').trim(),addressParts:readAddress(f),receiptNote:String(f.get('receiptNote')??'').trim(),mode:f.get('mode'),paid:paise(f.get('paid')),total:total(),lines:structuredClone(cart)};const original=correction?.original;await change(d=>original?correctSale(d,original,sale):commitBill(d,sale));if(original){endCorrection()}else{cart=[];draft={}}nav(4);showSale(original?.id??sale.id)})}}
 function billAddressFields() {
   const text = (key, label, limit = 100) =>
     field(key, label, draft[key], 'maxlength="' + limit + '"');
@@ -103,9 +103,9 @@ function receipt(sale) {
     '<th>সংখ্যা</th><th>দর</th><th>টাকা</th></tr></thead><tbody>' + items +
     '</tbody></table><div class="invoice-totals">' + row('মোট বিল', money(sale.total)) +
     row('পরিশোধিত', money(sale.paid)) + row('বাকি', money(sale.total - sale.paid)) +
-    '</div>' + (sale.receiptNote ? '<p style="clear:both;border-top:1px solid #afc3da;margin-top:1.5rem;padding:.65rem 0;font-size:10pt;text-align:center;overflow-wrap:anywhere;break-inside:avoid">' + esc(sale.receiptNote) + '</p>' : '') + '</article>';
+    '</div>' + (sale.receiptNote ? '<p style="clear:both;border-top:1px solid #afc3da;margin-top:1.5rem;padding:.65rem 0;font-size:10pt;text-align:center;overflow-wrap:anywhere;break-inside:avoid">' + esc(sale.receiptNote) + '</p>' : '') + signatureFooter(sale) + '</article>';
 }
-function showSale(key){let s=state.sales.find(s=>s.id===key),html=receipt(s);$('#paper').innerHTML=html;dialog('<div class="title">'+button('A4 প্রিন্ট / PDF','window.print()','primary')+closeBtn+'</div>'+html)}
+function showSale(key){let s=state.sales.find(s=>s.id===key),html=receipt(s);$('#paper').innerHTML=html;dialog('<div class="title">'+button('A4 প্রিন্ট / PDF','window.print()','primary')+button('বিল সংশোধন',"beginCorrection('"+s.id+"')")+closeBtn+'</div>'+html)}
 function historyView(key){let c=customers().find(c=>c.key===key);dialog('<div class="title"><h2>'+esc(c.name)+'</h2>'+closeBtn+'</div><p>'+esc(c.phone||c.sales[0].no)+' · মোট বাকি '+money(c.due)+'</p><small>'+esc(addressLines(c.sales[0]).join(', '))+'</small>'+c.sales.map(saleRow).join(''))}
 function backup(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({version:1,data:state})],{type:'application/json'}));a.download='tarafdar-'+dateKey(new Date())+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 const validId=k=>typeof k==='string'&&/^[a-f0-9-]{36}$/i.test(k),nat=n=>Number.isSafeInteger(n)&&n>=0,str=s=>typeof s==='string',logo=s=>s===''||typeof s==='string'&&/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(s),profile=p=>p&&['name','phone','web','address','email'].every(k=>str(p[k]))&&(p.phone2===undefined||str(p.phone2))&&logo(p.logo);
@@ -963,4 +963,73 @@ function editBillLine(index) {
       notify(error.message);
     }
   };
+}
+
+
+let correction = null;
+function beginCorrection(key) {
+  const original = state.sales.find(sale => sale.id === key);
+  if (!original || correction) return;
+  correction = {original: structuredClone(original), pendingCart: cart, pendingDraft: draft};
+  cart = structuredClone(original.lines);
+  draft = {...original, ...original.addressParts, paid: original.paid / 100, receiptNote: original.receiptNote ?? ''};
+  $('#modal').close();
+  nav(1);
+}
+function endCorrection() {
+  cart = correction.pendingCart;
+  draft = correction.pendingDraft;
+  correction = null;
+}
+function productUnits(lines, key) {
+  return lines.reduce((sum,line) => sum + (line.product === key ? line.qty : 0), 0);
+}
+function correctSale(data, original, revised) {
+  const index = data.sales.findIndex(sale => sale.id === original.id);
+  if (index < 0 || JSON.stringify(data.sales[index]) !== JSON.stringify(original))
+    throw Error('এই বিলটি অন্যত্র বদলেছে। সংশোধন বাতিল করে সর্বশেষ রসিদটি আবার খুলুন।');
+  if (!revised.lines.length) throw Error('বিলে অন্তত একটি আইটেম রাখুন।');
+  if (!nat(revised.total) || !nat(revised.paid) || revised.paid > revised.total)
+    throw Error('মোট ও পরিশোধিত টাকা মিলিয়ে নিন।');
+  const keys = new Set([...original.lines, ...revised.lines].map(line => line.product).filter(Boolean));
+  const updates = [];
+  for (const key of keys) {
+    const extra = productUnits(revised.lines, key) - productUnits(original.lines, key);
+    if (!extra) continue;
+    const product = data.products.find(item => item.id === key);
+    if (!product) throw Error('সংশ্লিষ্ট পণ্যটি স্টক তালিকায় পাওয়া যায়নি।');
+    if (product.stock === null) continue;
+    if (product.stock < extra) throw Error(product.name + ' পর্যাপ্ত স্টক নেই।');
+    updates.push([product,product.stock-extra]);
+  }
+  for (const [product,stock] of updates) product.stock = stock;
+  data.sales[index] = {...original,...revised,id:original.id,no:original.no,at:original.at,shop:original.shop};
+}
+
+const billingOwners = [
+  {id:'emadul',name:'এমাদুল তরফদার',phone:'+91 9679325977'},
+  {id:'rabiul',name:'রবিউল তরফদার',phone:'+91 8918360812'}
+];
+
+function ownerField(selected) {
+  return '<label>বিল করছেন<select name="ownerId" required><option value="">মালিকের নাম বাছুন</option>' +
+    billingOwners.map(owner => '<option value="'+owner.id+'" '+(owner.id===selected?'selected':'')+'>'+
+      esc(owner.name)+'</option>').join('')+'</select></label>';
+}
+
+function billingOwner(form) {
+  const id = form.get('ownerId');
+  if (!billingOwners.some(owner => owner.id === id)) throw Error('যিনি বিল করছেন তাঁর নাম বাছুন।');
+  return id;
+}
+
+function signatureFooter(sale) {
+  const owner = billingOwners.find(owner => owner.id === sale.ownerId);
+  if (!owner) return '';
+  return '<section style="clear:both;break-inside:avoid;page-break-inside:avoid;padding-top:5mm">' +
+    '<div style="width:65mm;max-width:100%;margin-left:auto;text-align:center">' +
+    '<div style="height:16mm;border-bottom:1px solid #426382"></div>' +
+    '<small>বিলকারীর স্বাক্ষর</small><br><strong>'+esc(owner.name)+'</strong><br>'+esc(owner.phone)+'</div>' +
+    '<p style="border-top:1px solid #afc3da;padding-top:3mm;margin:5mm 0 0;font-size:10pt;text-align:center">' +
+    'দোকান ছাড়ার আগে বিলটি মিলিয়ে নিন। কোনো সমস্যা বা অভিযোগ থাকলে এই বিলটি সঙ্গে আনুন।</p></section>';
 }
