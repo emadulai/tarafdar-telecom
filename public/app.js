@@ -79,18 +79,19 @@ function receipt(sale) {
   const shop = sale.shop;
   const paragraph = value => value ? '<p>' + esc(value) + '</p>' : '';
   const phones = [shop.phone, shop.phone2].filter(Boolean).join(' / ');
-  const shopLogo = shop.printStorefront !== false ? '<img class="invoice-storefront" src="./shop.svg" alt="Tarafdar Telecom দোকানের ছবি">' : shop.logo ? '<img alt="দোকানের লোগো" src="' + esc(shop.logo) + '">' :
-    '<span class="invoice-monogram">TT</span>';
+  const useStorefront = shop.printStorefront !== false || !shop.logo;
+  const bannerImage = useStorefront ? './receipt-banner.svg' : esc(shop.logo);
   const row = (label, value) => '<div><span>' + label + '</span><b>' + value + '</b></div>';
   const items = sale.lines.map((line, index) =>
     '<tr><td>' + bn(index + 1) + '</td><td>' + esc(line.name) + '</td><td>' +
     bn(line.qty) + '</td><td>' + money(line.price) + '</td><td>' +
     money(line.price * line.qty) + '</td></tr>').join('');
-  return '<article class="receipt invoice"><div class="invoice-head"><div class="invoice-shop">' +
-    shopLogo + '<div><h2>' + esc(shop.name) + '</h2>' + paragraph(shop.address) +
+  return '<article class="receipt invoice"><div class="receipt-banner">' +
+    '<img class="banner-art' + (useStorefront ? '' : ' custom-art') + '" alt="" src="' + bannerImage + '">' +
+    '<div class="banner-details"><h2>' + esc(shop.name) + '</h2>' + paragraph(shop.address) +
     paragraph(phones && 'ফোন: ' + phones) + paragraph(shop.email) + paragraph(shop.web) +
-    '</div></div><div class="invoice-ref"><h3>বিক্রয় রসিদ</h3><b>' + esc(sale.no) +
-    '</b>' + paragraph(date(sale.at)) + '</div></div>' +
+    '</div></div><div class="receipt-meta"><h3>বিক্রয় রসিদ</h3><div><b>' + esc(sale.no) +
+    '</b> · ' + date(sale.at) + '</div></div>' +
     '<div class="invoice-buyer"><div><small>কাস্টমার</small><strong>' + esc(sale.name) +
     '</strong>' + paragraph(sale.phone) + addressLines(sale).map(paragraph).join('') +
     '</div><div class="invoice-mode"><small>পেমেন্ট পদ্ধতি</small><b>' + esc(sale.mode) +

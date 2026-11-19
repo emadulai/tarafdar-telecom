@@ -22,3 +22,14 @@
 .storefront-choice input{width:auto;margin:0 6px 0 0;vertical-align:middle}
 .invoice .invoice-shop img.invoice-storefront{width:108px;height:auto;aspect-ratio:290/175;background:#2349a9;border-radius:6px;print-color-adjust:exact;-webkit-print-color-adjust:exact}
 @media print{.invoice .invoice-shop img.invoice-storefront{width:33mm}}
+
+/* Shop contact details are printed over the full-width masthead artwork. */
+.receipt-banner{position:relative;isolation:isolate;width:100%;min-height:148px;display:grid;align-items:center;padding:18px 4% 18px 43%;background:#1b4089;color:white;break-inside:avoid;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+.receipt-banner img.banner-art{position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:fill;z-index:-1}
+.receipt-banner img.custom-art{width:40%;height:100%;padding:10px;object-fit:contain}
+.banner-details{min-width:0;text-align:right;overflow-wrap:anywhere}
+.invoice .banner-details h2{color:inherit;font-size:clamp(19px,3vw,30px);line-height:1.2;margin:0 0 5px}
+.invoice .banner-details p{color:inherit;margin:2px 0;font-size:14px;line-height:1.38}
+.receipt-meta{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 12px;border-bottom:1px solid #b8c6d9;padding:10px 0;color:#213c60}
+@media screen and (max-width:520px){.receipt-banner{padding:12px 3% 12px 40%;min-height:120px}.invoice .banner-details p{font-size:12px}}
+@media print{.receipt-banner{min-height:38mm;padding-top:4mm;padding-bottom:4mm}.invoice .banner-details h2{font-size:19pt}.invoice .banner-details p{font-size:10pt}}
