@@ -95,3 +95,32 @@
   .actions{gap:6px}
 }
 @media print{.invoice .postal-block{font-size:10pt;line-height:1.4}.invoice-buyer .bill-to{max-width:72%}}
+
+/* Owner catalogue and mobile billing */
+@media screen {
+  body{background:#f4f6fb;font-family:system-ui,"Nirmala UI",sans-serif}
+  .workspace>header{background:#fff;border-bottom:1px solid #dee5f1}
+  main>.title h1{color:#152f52;letter-spacing:-.035em;line-height:1.2}
+  .panel,.card,.cat{border-color:#dce4f0;box-shadow:0 2px 7px #1d426509}
+  .hero{background:linear-gradient(108deg,#14367b,#2155a9 72%,#2763b5)}
+  .primary{background:#214fa8}
+  .navlabel{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:650}
+  nav .active{box-shadow:inset 3px 0 #2254af}
+  .layoutbill{align-items:start}
+  .layoutbill .panel>h2{font-size:19px;margin-bottom:12px}
+  #catalog{margin-bottom:0}
+  .one-off{margin-top:16px;border-top:1px solid #dce4ef;padding-top:12px}
+  .one-off summary{font-weight:600;color:#254e83;cursor:pointer}
+  .one-off form{margin-top:10px}
+  #checkout{border-top:1px solid #dce4ef;padding-top:14px;margin-top:12px}
+  #checkout>.primary{margin-top:8px}
+  .empty{border-top:1px solid #e7ecf4;line-height:1.45}
+}
+@media screen and (max-width:600px){
+  #checkout>.primary{width:100%}
+  .hero strong{font-size:clamp(27px,8vw,37px)}
+  .hero>div,.hero>strong,.hero>small{position:relative;z-index:1;max-width:65%;overflow-wrap:anywhere}
+  main>.title{margin:4px 0 14px}
+  .panel .empty{padding:20px 8px}
+  #catalog{font-size:16px;max-width:100%}
+}
