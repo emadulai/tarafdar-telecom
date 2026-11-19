@@ -17,7 +17,7 @@ function person(c){
   const detail = c.phone || c.sales[0].no;
   return '<div class="listrow">'+tile('users','violet')+'<div>'+button(esc(c.name),"historyView('"+c.key+"')",'link')+'<small>'+esc(detail)+'</small></div>'+call+'</div>';
 }
-function dashboard(){let now=new Date(),today=state.sales.filter(s=>dateKey(new Date(s.at))===dateKey(now)),sum=(ss)=>ss.reduce((a,s)=>a+s.total,0),qty=today.flatMap(s=>s.lines).reduce((a,l)=>a+l.qty,0),stock=state.products.filter(p=>p.stock!==null),low=stock.filter(p=>p.stock<=p.limit).length;
+function dashboard(){let now=new Date(),today=state.sales.filter(s=>dateKey(new Date(s.at))===dateKey(now)),sum=(ss)=>ss.reduce((a,s)=>a+shopRevenue(s),0),qty=today.flatMap(s=>s.lines).reduce((a,l)=>a+l.qty,0),stock=state.products.filter(p=>p.stock!==null),low=stock.filter(p=>p.stock<=p.limit).length;
 let days=Array.from({length:7},(_,i)=>new Date(+now-(6-i)*86400000)),values=days.map(d=>sum(state.sales.filter(s=>dateKey(new Date(s.at))===dateKey(d)))),max=Math.max(1,...values);
 return heading('ড্যাশবোর্ড',button(ic('plus')+' নতুন বিল','nav(1)','primary'))+'<section class="hero"><div class="kicker">'+ic('wallet')+' আজকের মোট বিক্রি</div><strong>'+money(sum(today))+'</strong><small>আজকের ইনভয়েস · '+bn(today.length)+'টি</small><img alt="" src="shop.svg"></section><div class="stats">'+[['বিক্রি হওয়া আইটেম',bn(qty),'box','','আজকের পণ্য ও সার্ভিস'],['মজুত স্টক',bn(stock.reduce((a,p)=>a+p.stock,0)),'bars','green',low?bn(low)+'টি আইটেমে স্টক কম বা শেষ':'পণ্যের মোট ইউনিট'],['মোট বাকি',money(customers().reduce((a,c)=>a+c.due,0)),'wallet','orange','কাস্টমারের কাছে পাওনা']].map(([t,v,k,c,n])=>'<section class="card"><div class="statline"><span>'+t+'</span>'+tile(k,c)+'</div><strong>'+v+'</strong><small>'+n+'</small></section>').join('')+'</div><div class="lower"><section class="panel"><div class="title"><h2>বিক্রির হিসাব</h2><span class="tag">গত ৭ দিন</span></div><small>মোট বিক্রি</small><h2>'+money(values.reduce((a,b)=>a+b,0))+'</h2><div class="chart">'+values.map((v,i)=>'<div class="col" title="'+date(days[i])+' · '+money(v)+'" style="height:'+v/max*94+'%"></div>').join('')+'</div><div class="axis">'+days.map(d=>'<span>'+bn(+dateKey(d).slice(-2))+'</span>').join('')+'</div></section><section class="panel"><div class="title"><h2>সাম্প্রতিক কাস্টমার</h2>'+button('সব দেখুন','nav(3)','link')+'</div>'+(customers().slice(0,5).map(person).join('')||empty('users','প্রথম বিল তৈরি করলে এখানে কাস্টমারের নাম ও নম্বর দেখা যাবে।'))+'</section></div><h2>সার্ভিস বিভাগ</h2><div class="cats">'+cats.map((c,i)=>button(tile(['card','bank','box'][i],['','green','orange'][i])+'<div><b>'+c+'</b><small>'+bn(state.products.filter(p=>p.cat===c).length)+'টি পণ্য ও সার্ভিস</small></div>',"nav(2,'"+c+"')",'cat')).join('')+'</div>'}
 function options(arr,val){return arr.map(c=>'<option '+(c===val?'selected':'')+'>'+esc(c)+'</option>').join('')}
@@ -41,16 +41,16 @@ function required(f,k){let v=String(f.get(k)||'').trim();if(!v)throw Error('প�
 function paise(n){let v=Math.round(Number(n)*100);if(!Number.isSafeInteger(v)||v<0)throw Error('সঠিক টাকা লিখুন');return v}
 async function submit(form,fn){let b=form.querySelector('button.primary');if(b.disabled)return;b.disabled=true;try{await fn(new FormData(form))}catch(e){alert(e.message)}finally{b.disabled=false}}
 async function upload(file,old){if(!file?.size)return old||'';if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>5000000)throw Error('৫ MB-এর মধ্যে PNG, JPG বা WebP লোগো দিন');let img=await createImageBitmap(file),scale=Math.min(1,180/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);img.close();return c.toDataURL('image/png')}
-function settings(){let s=state.shop;return heading('দোকানের সেটিংস')+'<section class="panel"><h2>রসিদের জন্য দোকানের তথ্য</h2><form id="profile"><div class="formgrid">'+field('name','দোকানের নাম',s.name,'required')+field('phone','মোবাইল নম্বর ১',s.phone,'','tel')+field('phone2','মোবাইল নম্বর ২ (ঐচ্ছিক)',s.phone2,'','tel')+field('email','ইমেল',s.email,'','email')+field('web','ওয়েবসাইট',s.web)+field('address','দোকানের ঠিকানা',s.address)+'<label>দোকানের লোগো<input name="logo" type="file" accept="image/png,image/jpeg,image/webp"></label><label class="full storefront-choice"><input type="checkbox" name="printStorefront" '+(s.printStorefront!==false?'checked':'')+'> রসিদে ড্যাশবোর্ডের দোকানের ছবি দেখান</label></div><button class="primary">সংরক্ষণ করুন</button></form></section><br><section class="panel"><h2>হিসাবের ব্যাকআপ</h2><p>হিসাব আপনার অ্যাডমিন অ্যাকাউন্টের ডেটাবেসে থাকে। নিয়মিত ব্যাকআপ ডাউনলোড করুন।</p><div class="actions">'+button('ব্যাকআপ ডাউনলোড','backup()')+'<label>ব্যাকআপ ফেরান<input type="file" accept=".json" onchange="restore(this)"></label></div></section>'}
-function bill(){return heading('নতুন বিল')+'<div class="layoutbill"><section class="panel"><h2>পণ্য ও সার্ভিস বাছুন</h2><input placeholder="পণ্য বা সার্ভিস খুঁজুন…" aria-label="পণ্য খুঁজুন" oninput="catalog(this.value)"><div id="catalog"></div><hr><h3>কাস্টম সার্ভিস</h3><form id="custom">'+field('name','সার্ভিসের নাম','','required maxlength="100"')+field('price','দাম (₹)','','required min="0" max="99999999" step=".01"','number')+'<button>বিলে যোগ করুন</button></form></section><section class="panel"><h2>বিলের বিবরণ</h2><div id="lines"></div><form id="checkout"><div class="formgrid">'+field('name','কাস্টমারের নাম',draft.name,'required maxlength="100"')+field('phone','মোবাইল নম্বর (ঐচ্ছিক)',draft.phone,'pattern="[0-9]{10}" title="১০ সংখ্যার মোবাইল নম্বর" inputmode="numeric"','tel')+billAddressFields()+'<label>পেমেন্ট মোড<select name="mode">'+options(['Cash','COD','UPI'],draft.mode)+'</select></label>'+field('paid','পরিশোধিত টাকা (₹)',draft.paid??'','min="0" step=".01"','number')+'</div><p id="due"></p><button class="primary">ইনভয়েস তৈরি করুন</button></form></section></div>'}
+function settings(){let s=state.shop;return heading('দোকানের সেটিংস')+'<section class="panel"><h2>রসিদের জন্য দোকানের তথ্য</h2><form id="profile"><div class="formgrid">'+field('name','দোকানের নাম',s.name,'required')+field('phone','মোবাইল নম্বর ১',s.phone,'','tel')+field('phone2','মোবাইল নম্বর ২ (ঐচ্ছিক)',s.phone2,'','tel')+field('email','ইমেল',s.email,'','email')+field('web','ওয়েবসাইট',s.web)+field('address','দোকানের ঠিকানা',s.address)+field('receiptNote','সব নতুন রসিদের নিচের লেখা',s.receiptNote??defaultReceiptNote,'maxlength="500"')+'<label>দোকানের লোগো<input name="logo" type="file" accept="image/png,image/jpeg,image/webp"></label><label class="full storefront-choice"><input type="checkbox" name="printStorefront" '+(s.printStorefront!==false?'checked':'')+'> রসিদে ড্যাশবোর্ডের দোকানের ছবি দেখান</label></div><button class="primary">সংরক্ষণ করুন</button></form></section><br><section class="panel"><h2>হিসাবের ব্যাকআপ</h2><p>হিসাব আপনার অ্যাডমিন অ্যাকাউন্টের ডেটাবেসে থাকে। নিয়মিত ব্যাকআপ ডাউনলোড করুন।</p><div class="actions">'+button('ব্যাকআপ ডাউনলোড','backup()')+'<label>ব্যাকআপ ফেরান<input type="file" accept=".json" onchange="restore(this)"></label></div></section>'}
+function bill(){return heading('নতুন বিল')+'<div class="layoutbill"><section class="panel"><h2>পণ্য ও সার্ভিস বাছুন</h2>'+masterPanel()+'<h3>নিজস্ব পণ্য ও স্টক</h3><input placeholder="পণ্য বা সার্ভিস খুঁজুন…" aria-label="পণ্য খুঁজুন" oninput="catalog(this.value)"><div id="catalog"></div><hr><h3>কাস্টম সার্ভিস</h3><form id="custom">'+field('name','সার্ভিসের নাম','','required maxlength="100"')+field('price','দাম (₹)','','required min="0" max="99999999" step=".01"','number')+'<button>বিলে যোগ করুন</button></form></section><section class="panel"><h2>বিলের বিবরণ</h2><div id="lines"></div><form id="checkout"><div class="formgrid">'+field('name','কাস্টমারের নাম',draft.name,'required maxlength="100"')+field('phone','মোবাইল নম্বর (ঐচ্ছিক)',draft.phone,'pattern="[0-9]{10}" title="১০ সংখ্যার মোবাইল নম্বর" inputmode="numeric"','tel')+billAddressFields()+'<label>পেমেন্ট মোড<select name="mode">'+options(['Cash','COD','UPI'],draft.mode)+'</select></label>'+field('paid','পরিশোধিত টাকা (₹)',draft.paid??'','min="0" step=".01"','number')+'</div>'+field('receiptNote','রসিদের নিচের লেখা',draft.receiptNote??state.shop.receiptNote??defaultReceiptNote,'maxlength="500"')+'<p id="due"></p><button class="primary">ইনভয়েস তৈরি করুন</button></form></section></div>'}
 function catalog(q=''){let ps=state.products.filter(p=>productMatches(p,q.toLowerCase()));$('#catalog').innerHTML=ps.map(p=>'<div class="listrow"><div>'+esc(p.name)+productDescription(p)+'<small>'+money(p.price)+' · '+esc(p.cat)+'</small></div>'+button('যোগ করুন',"addItem('"+p.id+"')")+'</div>').join('')||empty('box','পণ্য ও সার্ভিস বিভাগে আইটেম যোগ করুন বা কাস্টম সার্ভিস লিখুন।')}
-function addItem(key){let p=state.products.find(x=>x.id===key),l=cart.find(x=>x.product===key);if(p.stock!==null&&(l?.qty||0)>=p.stock)return notify('পর্যাপ্ত স্টক নেই');if(l)l.qty++;else cart.push({product:key,name:p.name,price:p.price,qty:1});lines()}
+function addItem(key){let p=state.products.find(x=>x.id===key),l=cart.find(x=>x.product===key);if(p.stock!==null&&(l?.qty||0)>=p.stock)return notify('পর্যাপ্ত স্টক নেই');if(l)l.qty++;else cart.push({product:key,name:p.name,price:p.price,qty:1,sourceName:p.name,sourcePrice:p.price});lines()}
 const total=()=>cart.reduce((n,l)=>n+l.price*l.qty,0);
-function lines(){ $('#lines').innerHTML=cart.map((l,i)=>'<div class="listrow"><div>'+esc(l.name)+'<small>'+money(l.price)+' × '+bn(l.qty)+'</small></div><div>'+button('−','adjust('+i+',-1)')+' '+button('+','adjust('+i+',1)')+'</div></div>').join('')+'<h3>মোট '+money(total())+'</h3>';due()}
-function adjust(i,d){if(d===1&&cart[i].product)return addItem(cart[i].product);cart[i].qty+=d;if(!cart[i].qty)cart.splice(i,1);lines()}
+function lines(){ if(!cart.some(l=>l.pvc)) cart=cart.filter(l=>!l.delivery); $('#lines').innerHTML=cart.map((l,i)=>'<div class="listrow"><div>'+esc(l.name)+lineDetails(l)+'<small>'+money(l.price)+' × '+bn(l.qty)+'</small></div><div>'+button('বদলান','editBillLine('+i+')')+' '+button('−','adjust('+i+',-1)')+' '+(l.delivery?'':button('+','adjust('+i+',1)'))+'</div></div>').join('')+deliveryControl()+'<h3>মোট '+money(total())+'</h3>';due()}
+function adjust(i,d){if(cart[i].delivery){if(d<0)setDelivery('0');return}if(d===1&&cart[i].product)return addItem(cart[i].product);cart[i].qty+=d;if(!cart[i].qty)cart.splice(i,1);lines()}
 function due(){let p=$('#checkout').elements.paid;p.max=total()/100;$('#due').textContent='বাকি '+money(total()-Math.round((Number(p.value)||0)*100))}
-function commitBill(data,sale){if(!sale.lines.length)throw Error('বিলে অন্তত একটি আইটেম যোগ করুন');if(sale.paid>sale.total)throw Error('পরিশোধিত টাকা মোট বিলের চেয়ে বেশি');for(let l of sale.lines){if(!l.product)continue;let p=data.products.find(p=>p.id===l.product);if(!p||p.price!==l.price||p.name!==l.name)throw Error('পণ্য বদলেছে। বিল থেকে বাদ দিয়ে আবার যোগ করুন।');if(p.stock!==null){if(p.stock<l.qty)throw Error(l.name+' পর্যাপ্ত স্টক নেই');p.stock-=l.qty}}sale.no='TT-'+String(data.sales.length+1).padStart(5,'0');sale.shop={...data.shop};data.sales.push(sale)}
-function bindBill(){catalog();lines();$('#custom').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target);try{cart.push({product:null,name:required(f,'name'),price:paise(f.get('price')),qty:1});lines();e.target.reset()}catch(err){notify(err.message)}};$('#checkout').oninput=e=>{draft=Object.fromEntries(new FormData(e.currentTarget));due()};$('#checkout').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let sale={id:id(),at:new Date().toISOString(),name:required(f,'name'),phone:f.get('phone'),address:f.get('address').trim(),addressParts:readAddress(f),mode:f.get('mode'),paid:paise(f.get('paid')),total:total(),lines:structuredClone(cart)};await change(d=>commitBill(d,sale));cart=[];draft={};nav(4);showSale(sale.id)})}}
+function commitBill(data,sale){if(!sale.lines.length)throw Error('বিলে অন্তত একটি আইটেম যোগ করুন');if(sale.paid>sale.total)throw Error('পরিশোধিত টাকা মোট বিলের চেয়ে বেশি');for(let l of sale.lines){if(!l.product)continue;let p=data.products.find(p=>p.id===l.product);if(!p||p.price!==(l.sourcePrice??l.price)||p.name!==(l.sourceName??l.name))throw Error('পণ্য বদলেছে। বিল থেকে বাদ দিয়ে আবার যোগ করুন।');if(p.stock!==null){if(p.stock<l.qty)throw Error(l.name+' পর্যাপ্ত স্টক নেই');p.stock-=l.qty}}sale.no='TT-'+String(data.sales.length+1).padStart(5,'0');sale.shop={...data.shop};data.sales.push(sale)}
+function bindBill(){bindMaster();catalog();lines();$('#custom').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target);try{cart.push({product:null,name:required(f,'name'),price:paise(f.get('price')),qty:1});lines();e.target.reset()}catch(err){notify(err.message)}};$('#checkout').oninput=e=>{draft=Object.fromEntries(new FormData(e.currentTarget));due()};$('#checkout').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let sale={id:id(),at:new Date().toISOString(),name:required(f,'name'),phone:f.get('phone'),address:f.get('address').trim(),addressParts:readAddress(f),receiptNote:String(f.get('receiptNote')??'').trim(),mode:f.get('mode'),paid:paise(f.get('paid')),total:total(),lines:structuredClone(cart)};await change(d=>commitBill(d,sale));cart=[];draft={};nav(4);showSale(sale.id)})}}
 function billAddressFields() {
   const text = (key, label, limit = 100) =>
     field(key, label, draft[key], 'maxlength="' + limit + '"');
@@ -86,7 +86,7 @@ function receipt(sale) {
   const bannerImage = useStorefront ? './receipt-banner.svg' : esc(shop.logo);
   const row = (label, value) => '<div><span>' + label + '</span><b>' + value + '</b></div>';
   const items = sale.lines.map((line, index) =>
-    '<tr><td>' + bn(index + 1) + '</td><td>' + esc(line.name) + '</td><td>' +
+    '<tr><td>' + bn(index + 1) + '</td><td>' + esc(line.name) + lineDetails(line) + '</td><td>' +
     bn(line.qty) + '</td><td>' + money(line.price) + '</td><td>' +
     money(line.price * line.qty) + '</td></tr>').join('');
   return '<article class="receipt invoice"><div class="receipt-banner">' +
@@ -103,7 +103,7 @@ function receipt(sale) {
     '<th>সংখ্যা</th><th>দর</th><th>টাকা</th></tr></thead><tbody>' + items +
     '</tbody></table><div class="invoice-totals">' + row('মোট বিল', money(sale.total)) +
     row('পরিশোধিত', money(sale.paid)) + row('বাকি', money(sale.total - sale.paid)) +
-    '</div></article>';
+    '</div>' + (sale.receiptNote ? '<p style="clear:both;border-top:1px solid #afc3da;margin-top:1.5rem;padding:.65rem 0;font-size:10pt;text-align:center;overflow-wrap:anywhere;break-inside:avoid">' + esc(sale.receiptNote) + '</p>' : '') + '</article>';
 }
 function showSale(key){let s=state.sales.find(s=>s.id===key),html=receipt(s);$('#paper').innerHTML=html;dialog('<div class="title">'+button('A4 প্রিন্ট / PDF','window.print()','primary')+closeBtn+'</div>'+html)}
 function historyView(key){let c=customers().find(c=>c.key===key);dialog('<div class="title"><h2>'+esc(c.name)+'</h2>'+closeBtn+'</div><p>'+esc(c.phone||c.sales[0].no)+' · মোট বাকি '+money(c.due)+'</p><small>'+esc(addressLines(c.sales[0]).join(', '))+'</small>'+c.sales.map(saleRow).join(''))}
@@ -113,3 +113,854 @@ function validData(d){return d&&profile(d.shop)&&Array.isArray(d.products)&&Arra
 async function restore(input){try{let b=JSON.parse(await input.files[0].text());if(b.version!==1||!validData(b.data))throw Error('সঠিক ব্যাকআপ ফাইল বাছুন');if(!confirm('বর্তমান হিসাব বদলে ব্যাকআপের হিসাব ফেরাবেন?'))return;await change(d=>Object.assign(d,b.data));cart=[];draft={};render();notify('ব্যাকআপ ফেরানো হয়েছে')}catch(e){alert(e.message)}finally{input.value=''}}
 function render(){$('#nav').innerHTML=pages.map((p,i)=>(i===0?'<div class="navlabel">প্রধান মেনু</div>':i===5?'<div class="navlabel">ব্যবস্থাপনা</div>':'')+button(ic(icons[i])+p,'nav('+i+')',page===i?'active':'')).join('');$('#crumb').textContent='দোকান পরিচালনা  /  '+pages[page];$('#today').textContent=date(Date.now());$('#main').innerHTML=page===0?dashboard():page===1?bill():page===5?settings():heading(pages[page],page===2?button(ic('plus')+' নতুন আইটেম','product()','primary'):'')+'<section class="panel">'+searchBar(page===2)+'<div id="list">'+list()+'</div></section>';if(page===1)bindBill();if(page===5)$('#profile').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let shop={...Object.fromEntries(f),name:required(f,'name'),printStorefront:f.has('printStorefront'),logo:await upload(f.get('logo'),state.shop.logo)};await change(d=>d.shop=shop);notify('দোকানের তথ্য সংরক্ষিত হয়েছে')})}}
 $('#menu').onclick=()=>$('aside').classList.toggle('open');
+
+
+const masterGroups = [
+  {
+    "title": "PAN Card Services",
+    "services": [
+      {
+        "name": "New PAN Card Application",
+        "rate": "180",
+        "suggested": false
+      },
+      {
+        "name": "PAN Card Correction",
+        "rate": "180",
+        "suggested": false
+      },
+      {
+        "name": "Lost PAN Card Complete Service",
+        "rate": "400",
+        "suggested": false
+      },
+      {
+        "name": "PAN Card Reprint Assistance",
+        "rate": "150",
+        "suggested": true
+      },
+      {
+        "name": "e-PAN Download & Print",
+        "rate": "30",
+        "suggested": true
+      },
+      {
+        "name": "PAN Card Status Check",
+        "rate": "10",
+        "suggested": true
+      },
+      {
+        "name": "PAN-Aadhaar Linking Assistance",
+        "rate": "50",
+        "suggested": true
+      },
+      {
+        "name": "PAN PVC Card Printing",
+        "rate": "PVC",
+        "suggested": false
+      }
+    ]
+  },
+  {
+    "title": "Voter Card Services",
+    "services": [
+      {
+        "name": "New Voter Card Application",
+        "rate": "120",
+        "suggested": false
+      },
+      {
+        "name": "Voter Card Correction",
+        "rate": "120",
+        "suggested": false
+      },
+      {
+        "name": "Voter Card Address Change",
+        "rate": "120",
+        "suggested": false
+      },
+      {
+        "name": "Voter Mobile Number Link / Update",
+        "rate": "50",
+        "suggested": false
+      },
+      {
+        "name": "e-EPIC Download & Print",
+        "rate": "30",
+        "suggested": true
+      },
+      {
+        "name": "Voter Card Status Check",
+        "rate": "10",
+        "suggested": true
+      },
+      {
+        "name": "Voter List Name Search",
+        "rate": "10",
+        "suggested": true
+      },
+      {
+        "name": "Voter PVC Card Printing",
+        "rate": "PVC",
+        "suggested": false
+      },
+      {
+        "name": "Voter Card Replacement Assistance",
+        "rate": "100",
+        "suggested": true
+      }
+    ]
+  },
+  {
+    "title": "Banking & Financial Services",
+    "services": [
+      {
+        "name": "Cash Withdrawal",
+        "rate": "W",
+        "suggested": false
+      },
+      {
+        "name": "Cash Deposit",
+        "rate": "%",
+        "suggested": false
+      },
+      {
+        "name": "Money Transfer",
+        "rate": "%",
+        "suggested": false
+      },
+      {
+        "name": "PhonePe Money Transfer",
+        "rate": "%",
+        "suggested": false
+      },
+      {
+        "name": "Balance Enquiry",
+        "rate": "5",
+        "suggested": false
+      },
+      {
+        "name": "DBT Link / NPCI Seeding Assistance",
+        "rate": "50",
+        "suggested": false
+      },
+      {
+        "name": "Airtel Payments Bank Account Opening",
+        "rate": "200",
+        "suggested": false
+      },
+      {
+        "name": "NSDL Account Opening",
+        "rate": "150",
+        "suggested": false
+      },
+      {
+        "name": "Kotak Mahindra Bank Classic Zero Balance Account",
+        "rate": "D2000",
+        "suggested": false
+      },
+      {
+        "name": "Kotak Mahindra Bank Classic Zero Balance Account",
+        "rate": "D5000",
+        "suggested": false
+      },
+      {
+        "name": "Kotak Mahindra Bank Super Zero Balance Account",
+        "rate": "D10000",
+        "suggested": false
+      },
+      {
+        "name": "Loan Application Assistance",
+        "rate": "0",
+        "suggested": false
+      },
+      {
+        "name": "Mini Statement",
+        "rate": "10",
+        "suggested": true
+      },
+      {
+        "name": "Aadhaar Bank Linking Assistance",
+        "rate": "50",
+        "suggested": true
+      },
+      {
+        "name": "Insurance Application Assistance",
+        "rate": "100",
+        "suggested": true
+      },
+      {
+        "name": "Credit Card Application Assistance",
+        "rate": "100",
+        "suggested": true
+      }
+    ]
+  },
+  {
+    "title": "Aadhaar Card Services",
+    "services": [
+      {
+        "name": "Aadhaar Print + Lamination",
+        "rate": "50",
+        "suggested": false
+      },
+      {
+        "name": "Biometric Update Appointment Booking",
+        "rate": "50",
+        "suggested": false
+      },
+      {
+        "name": "Aadhaar Mobile Number Change Assistance",
+        "rate": "100",
+        "suggested": false
+      },
+      {
+        "name": "Mobile Update Appointment Booking",
+        "rate": "50",
+        "suggested": false
+      },
+      {
+        "name": "Aadhaar Address Update Assistance",
+        "rate": "50",
+        "suggested": false
+      },
+      {
+        "name": "Aadhaar Name / DOB Update Appointment",
+        "rate": "50",
+        "suggested": false
+      },
+      {
+        "name": "Aadhaar Download",
+        "rate": "10",
+        "suggested": false
+      },
+      {
+        "name": "Aadhaar Status Check",
+        "rate": "10",
+        "suggested": false
+      },
+      {
+        "name": "Aadhaar Document Update Assistance",
+        "rate": "50",
+        "suggested": true
+      },
+      {
+        "name": "Aadhaar PVC Card Printing",
+        "rate": "PVC",
+        "suggested": false
+      }
+    ]
+  },
+  {
+    "title": "Recharge & Bill Payment Services",
+    "services": [
+      {
+        "name": "Mobile Recharge",
+        "rate": "R",
+        "suggested": false
+      },
+      {
+        "name": "Electricity Bill Payment",
+        "rate": "%",
+        "suggested": false
+      },
+      {
+        "name": "EMI / Loan Installment Payment",
+        "rate": "%",
+        "suggested": false
+      },
+      {
+        "name": "DTH Recharge",
+        "rate": "%",
+        "suggested": false
+      },
+      {
+        "name": "Gas Bill Payment",
+        "rate": "%",
+        "suggested": false
+      },
+      {
+        "name": "Water Bill Payment",
+        "rate": "%",
+        "suggested": false
+      },
+      {
+        "name": "Broadband Bill Payment",
+        "rate": "%",
+        "suggested": false
+      },
+      {
+        "name": "FASTag Recharge",
+        "rate": "%",
+        "suggested": false
+      },
+      {
+        "name": "Credit Card Bill Payment",
+        "rate": "%",
+        "suggested": false
+      },
+      {
+        "name": "Insurance Premium Payment",
+        "rate": "%",
+        "suggested": false
+      },
+      {
+        "name": "Postpaid Mobile Bill Payment",
+        "rate": "%",
+        "suggested": true
+      },
+      {
+        "name": "Landline Bill Payment",
+        "rate": "%",
+        "suggested": true
+      },
+      {
+        "name": "Other Bill / Payment Services",
+        "rate": "%",
+        "suggested": false
+      }
+    ]
+  },
+  {
+    "title": "Printing, Xerox & Document Services",
+    "services": [
+      {
+        "name": "Black & White Xerox (Per Page)",
+        "rate": "3",
+        "suggested": false
+      },
+      {
+        "name": "WhatsApp Document Print (Per Page)",
+        "rate": "5",
+        "suggested": false
+      },
+      {
+        "name": "Colour Printout (Per Page)",
+        "rate": "10",
+        "suggested": false
+      },
+      {
+        "name": "Aadhaar Print + Lamination",
+        "rate": "50",
+        "suggested": false
+      },
+      {
+        "name": "Small Lamination",
+        "rate": "10",
+        "suggested": false
+      },
+      {
+        "name": "Medium Lamination",
+        "rate": "20",
+        "suggested": true
+      },
+      {
+        "name": "A4 Lamination",
+        "rate": "30",
+        "suggested": true
+      },
+      {
+        "name": "Large Lamination",
+        "rate": "50",
+        "suggested": false
+      },
+      {
+        "name": "Document Scanning (Per Page)",
+        "rate": "10",
+        "suggested": true
+      },
+      {
+        "name": "PDF Editing (Simple)",
+        "rate": "30",
+        "suggested": true
+      },
+      {
+        "name": "PDF Merge / Split",
+        "rate": "20",
+        "suggested": true
+      },
+      {
+        "name": "Document Upload",
+        "rate": "20",
+        "suggested": true
+      },
+      {
+        "name": "Email Account Creation",
+        "rate": "30",
+        "suggested": true
+      },
+      {
+        "name": "Simple Online Form Fill-up",
+        "rate": "50",
+        "suggested": true
+      },
+      {
+        "name": "Complex Online Form Fill-up",
+        "rate": "150",
+        "suggested": true
+      }
+    ]
+  },
+  {
+    "title": "Photo Printing Services",
+    "services": [
+      {
+        "name": "Passport Size Photo — 3 Pieces",
+        "rate": "20",
+        "suggested": false
+      },
+      {
+        "name": "Passport Size Photo — 6 Pieces",
+        "rate": "30",
+        "suggested": false
+      },
+      {
+        "name": "Joint Photo — 5 Pieces",
+        "rate": "30",
+        "suggested": false
+      },
+      {
+        "name": "Passport Photo Background Editing",
+        "rate": "20",
+        "suggested": true
+      },
+      {
+        "name": "Photo Resize / Crop",
+        "rate": "10",
+        "suggested": true
+      },
+      {
+        "name": "Photo Editing",
+        "rate": "30",
+        "suggested": true
+      }
+    ]
+  },
+  {
+    "title": "All Types of PVC Card Services",
+    "services": [
+      {
+        "name": "Aadhaar PVC Card",
+        "rate": "PVC",
+        "suggested": false
+      },
+      {
+        "name": "PAN PVC Card",
+        "rate": "PVC",
+        "suggested": false
+      },
+      {
+        "name": "Voter PVC Card",
+        "rate": "PVC",
+        "suggested": false
+      },
+      {
+        "name": "ABHA PVC Card",
+        "rate": "PVC",
+        "suggested": false
+      },
+      {
+        "name": "Ayushman PVC Card",
+        "rate": "PVC",
+        "suggested": false
+      },
+      {
+        "name": "ABC / APAAR PVC Card",
+        "rate": "PVC",
+        "suggested": false
+      },
+      {
+        "name": "Ration PVC Card",
+        "rate": "PVC",
+        "suggested": false
+      },
+      {
+        "name": "Driving Licence PVC Card",
+        "rate": "PVC",
+        "suggested": false
+      },
+      {
+        "name": "Student ID PVC Card",
+        "rate": "PVC",
+        "suggested": false
+      },
+      {
+        "name": "Employee ID PVC Card",
+        "rate": "PVC",
+        "suggested": false
+      },
+      {
+        "name": "Custom PVC Card",
+        "rate": "PVC",
+        "suggested": false
+      },
+      {
+        "name": "Other PVC Card",
+        "rate": "PVC",
+        "suggested": false
+      }
+    ]
+  },
+  {
+    "title": "Health & Ayushman Services",
+    "services": [
+      {
+        "name": "ABHA Card Creation",
+        "rate": "0",
+        "suggested": true
+      },
+      {
+        "name": "ABHA Card Download",
+        "rate": "0",
+        "suggested": true
+      },
+      {
+        "name": "ABHA PVC Card Printing",
+        "rate": "PVC",
+        "suggested": false
+      },
+      {
+        "name": "Ayushman Bharat Eligibility Check",
+        "rate": "0",
+        "suggested": true
+      },
+      {
+        "name": "Ayushman Card Application Assistance",
+        "rate": "0",
+        "suggested": true
+      },
+      {
+        "name": "Ayushman Card Download",
+        "rate": "0",
+        "suggested": true
+      },
+      {
+        "name": "Ayushman PVC Card Printing",
+        "rate": "PVC",
+        "suggested": false
+      },
+      {
+        "name": "Health Report Download & Print",
+        "rate": "20",
+        "suggested": true
+      },
+      {
+        "name": "Hospital Appointment Assistance",
+        "rate": "50",
+        "suggested": true
+      }
+    ]
+  },
+  {
+    "title": "Government & Certificate Services",
+    "services": [
+      {
+        "name": "Income Certificate Application Assistance",
+        "rate": "100",
+        "suggested": true
+      },
+      {
+        "name": "Residential Certificate Assistance",
+        "rate": "100",
+        "suggested": true
+      },
+      {
+        "name": "Caste Certificate Application Assistance",
+        "rate": "120",
+        "suggested": true
+      },
+      {
+        "name": "EWS Certificate Application Assistance",
+        "rate": "120",
+        "suggested": true
+      },
+      {
+        "name": "Birth Certificate Assistance",
+        "rate": "150",
+        "suggested": true
+      },
+      {
+        "name": "Death Certificate Assistance",
+        "rate": "150",
+        "suggested": true
+      },
+      {
+        "name": "Marriage Certificate Assistance",
+        "rate": "150",
+        "suggested": true
+      },
+      {
+        "name": "Police Clearance Certificate Application Assistance",
+        "rate": "150",
+        "suggested": true
+      },
+      {
+        "name": "Ration Card New Application Assistance",
+        "rate": "100",
+        "suggested": true
+      },
+      {
+        "name": "Ration Card Correction Assistance",
+        "rate": "100",
+        "suggested": true
+      },
+      {
+        "name": "Ration Card Address Change Assistance",
+        "rate": "100",
+        "suggested": true
+      },
+      {
+        "name": "e-Shram Registration Assistance",
+        "rate": "50",
+        "suggested": true
+      },
+      {
+        "name": "Udyam Registration",
+        "rate": "0",
+        "suggested": false
+      },
+      {
+        "name": "Trade Licence Application Assistance",
+        "rate": "150",
+        "suggested": true
+      },
+      {
+        "name": "Labour Card Application Assistance",
+        "rate": "100",
+        "suggested": true
+      }
+    ]
+  },
+  {
+    "title": "Education & Student Services",
+    "services": [
+      {
+        "name": "School Admission Form",
+        "rate": "100",
+        "suggested": true
+      },
+      {
+        "name": "College Admission Form",
+        "rate": "150",
+        "suggested": true
+      },
+      {
+        "name": "Scholarship Application Assistance",
+        "rate": "100",
+        "suggested": true
+      },
+      {
+        "name": "Student Credit Card Application Assistance",
+        "rate": "150",
+        "suggested": true
+      },
+      {
+        "name": "Exam Form Fill-up",
+        "rate": "100",
+        "suggested": true
+      },
+      {
+        "name": "Admit Card Download & Print",
+        "rate": "20",
+        "suggested": true
+      },
+      {
+        "name": "Result Download & Print",
+        "rate": "20",
+        "suggested": true
+      },
+      {
+        "name": "Marksheet Printing",
+        "rate": "20",
+        "suggested": true
+      },
+      {
+        "name": "ABC / APAAR ID Assistance",
+        "rate": "50",
+        "suggested": true
+      },
+      {
+        "name": "University Registration Assistance",
+        "rate": "150",
+        "suggested": true
+      },
+      {
+        "name": "Job Exam Application",
+        "rate": "120",
+        "suggested": true
+      },
+      {
+        "name": "Resume / Biodata Creation",
+        "rate": "100",
+        "suggested": true
+      }
+    ]
+  },
+  {
+    "title": "Transport, Travel & Other Services",
+    "services": [
+      {
+        "name": "Driving Licence Application Assistance",
+        "rate": "200",
+        "suggested": true
+      },
+      {
+        "name": "Learner Licence Application Assistance",
+        "rate": "150",
+        "suggested": true
+      },
+      {
+        "name": "Driving Licence Renewal Assistance",
+        "rate": "200",
+        "suggested": true
+      },
+      {
+        "name": "Vehicle Tax Payment Assistance",
+        "rate": "100",
+        "suggested": true
+      },
+      {
+        "name": "Traffic Challan Payment Assistance",
+        "rate": "50",
+        "suggested": true
+      },
+      {
+        "name": "Passport Application Assistance",
+        "rate": "200",
+        "suggested": true
+      },
+      {
+        "name": "Passport Appointment Assistance",
+        "rate": "100",
+        "suggested": true
+      },
+      {
+        "name": "Train Ticket Booking Assistance",
+        "rate": "100",
+        "suggested": true
+      },
+      {
+        "name": "Bus Ticket Booking Assistance",
+        "rate": "50",
+        "suggested": true
+      },
+      {
+        "name": "Flight Ticket Booking Assistance",
+        "rate": "200",
+        "suggested": true
+      },
+      {
+        "name": "Hotel Booking Assistance",
+        "rate": "100",
+        "suggested": true
+      },
+      {
+        "name": "Online Shopping Order Assistance",
+        "rate": "30",
+        "suggested": true
+      },
+      {
+        "name": "Online Complaint / Grievance Filing",
+        "rate": "100",
+        "suggested": true
+      }
+    ]
+  }
+];
+function masterPanel() {
+  return '<details open><summary><b>নভেম্বর ২০২৬ · সার্ভিস মূল্যতালিকা</b></summary><label>বিভাগ<select id="masterGroup">' +
+    masterGroups.map((g,i)=>'<option value="'+i+'">'+esc(g.title)+'</option>').join('') +
+    '</select></label><label>সার্ভিস<select id="masterService"></select></label><form id="masterForm"><div id="masterInputs"></div><p id="masterQuote" aria-live="polite"></p><button>বিলে যোগ করুন</button></form></details><hr>';
+}
+function tariffQuote(service, amount, override) {
+  const {rate} = service;
+  const deposit = rate.startsWith('D');
+  const variable = ['%','R','W'].includes(rate);
+  const base = deposit ? Number(rate.slice(1))*100 : variable ? amount : 0;
+  const fee = rate==='PVC' ? 7500 : deposit || rate==='R' ? 0 :
+    variable ? Math.max(1000, Math.round(amount/100)) : Number(rate)*100;
+  const charge = service.suggested && override !== null ? override : fee;
+  const principal = variable && rate!=='W' ? base : 0;
+  return {base,charge,principal,price:principal+charge};
+}
+function bindMaster() {
+  const group=$('#masterGroup'), service=$('#masterService'), form=$('#masterForm');
+  const selected=()=>masterGroups[group.value].services[service.value];
+  function quote() {
+    const item=selected();
+    const amount=paise(form.elements.amount?.value || 0);
+    const value=form.elements.override?.value;
+    return tariffQuote(item,amount,value ? paise(value) : null);
+  }
+  function preview() {
+    const {charge,base,price}=quote(), rate=selected().rate;
+    const label = rate.startsWith('D') ? 'গ্রাহকের ব্যাংক ডিপোজিট ' : rate==='W' ? 'উত্তোলন ' : 'লেনদেন ';
+    $('#masterQuote').textContent=(base ? label+money(base)+' · ' : '')+
+      'দোকানের দাম / চার্জ '+money(charge)+' · বিলে যোগ হবে '+money(price);
+  }
+  function inputs() {
+    const item=selected();
+    $('#masterInputs').innerHTML=(['%','R','W'].includes(item.rate) ? field('amount','লেনদেনের পরিমাণ (₹)','','required min=".01" max="99999999" step=".01"','number') : '')+
+      (item.suggested ? field('override','প্রস্তাবিত চার্জ বদলাতে নতুন দাম দিন (₹)','','min="0" max="99999999" step=".01"','number') : '');
+    preview();
+  }
+  function choices() {
+    service.innerHTML=masterGroups[group.value].services.map((s,i)=>'<option value="'+i+'">'+esc(s.name)+(s.rate.startsWith('D')?' · ₹'+Number(s.rate.slice(1)).toLocaleString('en-IN'):'')+'</option>').join('');
+    inputs();
+  }
+  group.onchange=choices; service.onchange=inputs; form.oninput=()=>{if(form.checkValidity()) preview(); else $('#masterQuote').textContent='সঠিক পরিমাণ লিখুন';};
+  form.onsubmit=e=>{
+    e.preventDefault();
+    const item=selected(), {base,charge,principal,price}=quote();
+    const detail=item.rate.startsWith('D') ? 'ব্যাংকে প্রাথমিক ডিপোজিট ' : item.rate==='W' ? 'উত্তোলন ' : 'লেনদেন ';
+    const name=item.name;
+    cart.push({product:null,name,price,qty:1,principal,transactionAmount:base,transactionLabel:detail,pvc:item.rate==='PVC'});
+    lines();
+  };
+  choices();
+}
+function deliveryControl() {
+  if (!cart.some(l=>l.pvc)) return '';
+  return '<label>PVC ডেলিভারি<select onchange="setDelivery(this.value)"><option value="0">সাধারণ · ১৫ দিনের মধ্যে · ফ্রি</option><option value="1" '+(cart.some(l=>l.delivery)?'selected':'')+'>জরুরি · ৭ দিনের মধ্যে · ₹৫০ পুরো অর্ডারে</option></select></label>';
+}
+function setDelivery(value) {
+  cart=cart.filter(l=>!l.delivery);
+  if(value==='1' && cart.some(l=>l.pvc)) cart.push({product:null,name:'PVC জরুরি ডেলিভারি (৭ দিনের মধ্যে)',price:5000,qty:1,delivery:true});
+  lines();
+}
+function shopRevenue(sale) {
+  return sale.total-sale.lines.reduce((n,l)=>n+(l.principal||0)*l.qty,0);
+}
+
+const defaultReceiptNote = 'পিভিসি কার্ড, ব্যাংকিং সহায়তা, ডিজিটাল পরিষেবা, জেরক্স, অনলাইন আবেদন ও বিল পেমেন্টের জন্য তরফদার টেলিকমে আসুন। ধন্যবাদ।';
+
+function lineDetails(line) {
+  if (!line.transactionAmount) return '';
+  return '<small style="display:block">' + esc(line.transactionLabel) + money(line.transactionAmount) +
+    ' · চার্জ ' + money(line.price - (line.principal || 0)) + '</small>';
+}
+
+function editBillLine(index) {
+  const line = cart[index];
+  const principal = line.principal || 0;
+  const amountLabel = line.transactionAmount ? 'দোকানের সার্ভিস চার্জ (₹)' : 'একটির দাম (₹)';
+  dialog('<div class="title"><h2>বিলের আইটেম বদলান</h2>' + closeBtn + '</div><form id="billLineEditor">' +
+    field('name','পণ্য বা সার্ভিসের নাম',line.name,'required maxlength="200"') +
+    field('price',amountLabel,(line.price-principal)/100,'required min="0" max="99999999" step=".01"','number') +
+    (principal ? '<p>লেনদেনের মূল টাকা '+money(principal)+'। এর সঙ্গে দোকানের চার্জ যোগ হবে।</p>' : '') +
+    '<button class="primary">বিলে রাখুন</button></form>');
+  $('#billLineEditor').onsubmit = event => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    try {
+      const name = required(form,'name');
+      const fee = paise(form.get('price'));
+      line.name = name;
+      line.price = principal + fee;
+      $('#modal').close();
+      lines();
+    } catch (error) {
+      notify(error.message);
+    }
+  };
+}
