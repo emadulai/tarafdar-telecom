@@ -1,5 +1,4 @@
-// Project URL and publishable key from the same Supabase project.
 const shopBackend = Object.freeze({
-  url: '',
-  publishableKey: ''
+  url: 'https://dfmmgfajiftjrhdxblhn.supabase.co',
+  publishableKey: 'sb_publishable_B0mNX-Jha4eP35ZfoscttA_gRFdbz7U'
 });
