@@ -4,7 +4,7 @@ const paths={grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',plus:'
 const ic=k=>'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+paths[k]+'"/></svg>';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const bn=n=>Number(n).toLocaleString('bn-IN',{maximumFractionDigits:2}), money=n=>'₹'+bn(n/100), id=()=>crypto.randomUUID(), dateKey=d=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(d), date=d=>new Date(d).toLocaleDateString('bn-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',year:'numeric'});
-const start=()=>({products:[],sales:[],shop:{name:'Tarafdar Telecom',web:'emadulai.in',address:'',email:'',phone:'',logo:''}});
+const start=()=>({products:[],sales:[],shop:{name:'Tarafdar Telecom',web:'www.emadulai.in',address:'',email:'',phone:'',logo:''}});
 let state=start(),page=0,filter='',query='',cart=[],draft={},noticeTimer;
 function notify(t){$('#toast').textContent=t;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('#toast').textContent='',3500)}
 const nav=(p,f='')=>{page=p;filter=f;query='';$('aside').classList.remove('open');render();scrollTo(0,0)};
