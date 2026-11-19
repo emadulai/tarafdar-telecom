@@ -11,15 +11,33 @@ const nav=(p,f='')=>{if(correction && page===1 && p!==1){if(!confirm('সংশ�
 const button=(label,fn,cls='')=>'<button type="button" class="'+cls+'" onclick="'+fn+'">'+label+'</button>';
 const tile=(k,c='')=>'<span class="tile '+c+'">'+ic(k)+'</span>', empty=(k,t)=>'<div class="empty">'+ic(k)+esc(t)+'</div>';
 const heading=(t,action='')=>'<div class="title"><h1>'+t+'</h1>'+action+'</div>';
-function customers(){let m=new Map;for(let s of [...state.sales].reverse()){const key=s.phone||s.id;let c=m.get(key);if(!c){c={key,name:s.name,phone:s.phone,sales:[],due:0};m.set(key,c)}c.sales.push(s);c.due+=s.total-s.paid}return [...m.values()]}
+function customers(data=state) {
+  const groups=new Map();
+  function group(record) {
+    const key=record.phone || record.customerKey || record.id;
+    if(!groups.has(key)) groups.set(key,{...record,key,sales:[],due:0});
+    return groups.get(key);
+  }
+  for(const sale of [...data.sales].reverse()) {
+    if(sale.customerRemoved) continue;
+    const customer=group(sale);
+    customer.sales.push(sale);
+    customer.due+=sale.total-sale.paid;
+  }
+  for(const profile of data.contacts || []) {
+    const customer=group(profile);
+    Object.assign(customer,profile);
+  }
+  return [...groups.values()];
+}
 function person(c){
   const call = c.phone ? '<a aria-label="কল করুন" href="tel:'+esc(c.phone)+'">'+ic('phone')+'</a>' : '';
-  const detail = c.phone || c.sales[0].no;
+  const detail = c.phone || (c.sales[0]?.no || 'নতুন কাস্টমার');
   return '<div class="listrow">'+tile('users','violet')+'<div>'+button(esc(c.name),"historyView('"+c.key+"')",'link')+'<small>'+esc(detail)+'</small></div>'+call+'</div>';
 }
 function dashboard(){let now=new Date(),today=state.sales.filter(s=>dateKey(new Date(s.at))===dateKey(now)),sum=(ss)=>ss.reduce((a,s)=>a+shopRevenue(s),0),qty=today.flatMap(s=>s.lines).reduce((a,l)=>a+l.qty,0),stock=state.products.filter(p=>p.stock!==null),low=stock.filter(p=>p.stock<=p.limit).length;
 let days=Array.from({length:7},(_,i)=>new Date(+now-(6-i)*86400000)),values=days.map(d=>sum(state.sales.filter(s=>dateKey(new Date(s.at))===dateKey(d)))),max=Math.max(1,...values);
-return heading('ড্যাশবোর্ড',button(ic('plus')+' নতুন বিল','nav(1)','primary'))+'<section class="hero"><div class="kicker">'+ic('wallet')+' আজকের মোট বিক্রি</div><strong>'+money(sum(today))+'</strong><small>আজকের ইনভয়েস · '+bn(today.length)+'টি</small><img alt="" src="shop.svg"></section><div class="stats">'+[['বিক্রি হওয়া আইটেম',bn(qty),'box','','আজকের পণ্য ও সার্ভিস'],['মজুত স্টক',bn(stock.reduce((a,p)=>a+p.stock,0)),'bars','green',low?bn(low)+'টি আইটেমে স্টক কম বা শেষ':'পণ্যের মোট ইউনিট'],['মোট বাকি',money(customers().reduce((a,c)=>a+c.due,0)),'wallet','orange','কাস্টমারের কাছে পাওনা']].map(([t,v,k,c,n])=>'<section class="card"><div class="statline"><span>'+t+'</span>'+tile(k,c)+'</div><strong>'+v+'</strong><small>'+n+'</small></section>').join('')+'</div><div class="lower"><section class="panel"><div class="title"><h2>বিক্রির হিসাব</h2><span class="tag">গত ৭ দিন</span></div><small>মোট বিক্রি</small><h2>'+money(values.reduce((a,b)=>a+b,0))+'</h2><div class="chart">'+values.map((v,i)=>'<div class="col" title="'+date(days[i])+' · '+money(v)+'" style="height:'+v/max*94+'%"></div>').join('')+'</div><div class="axis">'+days.map(d=>'<span>'+bn(+dateKey(d).slice(-2))+'</span>').join('')+'</div></section><section class="panel"><div class="title"><h2>সাম্প্রতিক কাস্টমার</h2>'+button('সব দেখুন','nav(3)','link')+'</div>'+(customers().slice(0,5).map(person).join('')||empty('users','প্রথম বিল তৈরি করলে এখানে কাস্টমারের নাম ও নম্বর দেখা যাবে।'))+'</section></div><h2>সার্ভিস বিভাগ</h2><div class="cats">'+cats.map((c,i)=>button(tile(['card','bank','box'][i],['','green','orange'][i])+'<div><b>'+c+'</b><small>'+bn(state.products.filter(p=>p.cat===c).length)+'টি পণ্য ও সার্ভিস</small></div>',"nav(2,'"+c+"')",'cat')).join('')+'</div>'}
+return heading('ড্যাশবোর্ড',button(ic('plus')+' নতুন বিল','nav(1)','primary'))+'<section class="hero"><div class="kicker">'+ic('wallet')+' আজকের মোট বিক্রি</div><strong>'+money(sum(today))+'</strong><small>আজকের ইনভয়েস · '+bn(today.length)+'টি</small><img alt="" src="shop.svg"></section><div class="stats">'+[['বিক্রি হওয়া আইটেম',bn(qty),'box','','আজকের পণ্য ও সার্ভিস'],['মজুত স্টক',bn(stock.reduce((a,p)=>a+p.stock,0)),'bars','green',low?bn(low)+'টি আইটেমে স্টক কম বা শেষ':'পণ্যের মোট ইউনিট'],['মোট বাকি',money(state.sales.reduce((a,s)=>a+s.total-s.paid,0)),'wallet','orange','কাস্টমারের কাছে পাওনা']].map(([t,v,k,c,n])=>'<section class="card"><div class="statline"><span>'+t+'</span>'+tile(k,c)+'</div><strong>'+v+'</strong><small>'+n+'</small></section>').join('')+'</div><div class="lower"><section class="panel"><div class="title"><h2>বিক্রির হিসাব</h2><span class="tag">গত ৭ দিন</span></div><small>মোট বিক্রি</small><h2>'+money(values.reduce((a,b)=>a+b,0))+'</h2><div class="chart">'+values.map((v,i)=>'<div class="col" title="'+date(days[i])+' · '+money(v)+'" style="height:'+v/max*94+'%"></div>').join('')+'</div><div class="axis">'+days.map(d=>'<span>'+bn(+dateKey(d).slice(-2))+'</span>').join('')+'</div></section><section class="panel"><div class="title"><h2>সাম্প্রতিক কাস্টমার</h2>'+button('সব দেখুন','nav(3)','link')+'</div>'+(customers().filter(c=>c.sales.length).slice(0,5).map(person).join('')||empty('users','প্রথম বিল তৈরি করলে এখানে কাস্টমারের নাম ও নম্বর দেখা যাবে।'))+'</section></div><h2>সার্ভিস বিভাগ</h2><div class="cats">'+cats.map((c,i)=>button(tile(['card','bank','box'][i],['','green','orange'][i])+'<div><b>'+c+'</b><small>'+bn(state.products.filter(p=>p.cat===c).length)+'টি পণ্য ও সার্ভিস</small></div>',"nav(2,'"+c+"')",'cat')).join('')+'</div>'}
 function options(arr,val){return arr.map(c=>'<option '+(c===val?'selected':'')+'>'+esc(c)+'</option>').join('')}
 function searchBar(category=false){return '<div class="actions"><input aria-label="খুঁজুন" placeholder="নাম বা নম্বর খুঁজুন…" value="'+esc(query)+'" oninput="query=this.value;refreshList()">'+(category?'<select aria-label="বিভাগ" onchange="filter=this.value;refreshList()"><option value="">সব বিভাগ</option>'+options(cats,filter)+'</select>':'')+'</div>'}
 function productMatches(product, q) {
@@ -36,13 +54,13 @@ function refreshList(){ $('#list').innerHTML=list() }
 function field(k,t,v='',attrs='',type='text'){return '<label>'+t+'<input name="'+k+'" type="'+type+'" value="'+esc(v)+'" '+attrs+'></label>'}
 function dialog(body){let d=$('#modal');d.innerHTML=body;if(!d.open)d.showModal()}
 const closeBtn=button('বন্ধ করুন',"document.querySelector('dialog').close()");
-function product(key){let p=state.products.find(p=>p.id===key)||{cat:filter||cats[0],stock:null,limit:3};dialog('<div class="title"><h2>'+(key?'পণ্য / সার্ভিস সম্পাদনা':'নতুন পণ্য / সার্ভিস')+'</h2>'+closeBtn+'</div><form id="edit"><div class="formgrid">'+field('name','নাম',p.name,'required maxlength="100"')+'<label>বিভাগ<select name="cat">'+options(cats,p.cat)+'</select></label>'+field('price','দাম (₹)',p.price===undefined?'':p.price/100,'required min="0" max="99999999" step=".01"','number')+field('stock','স্টক (সার্ভিস হলে খালি রাখুন)',p.stock??'','min="0" max="9999999" step="1"','number')+field('limit','কম স্টকের সীমা',p.limit,'required min="0" max="9999999"','number')+'<label>লোগো<input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></label><label class="full">পণ্য বা সার্ভিসের বিবরণ (ঐচ্ছিক)<textarea name="description" rows="3" maxlength="1500">'+esc(p.description||'')+'</textarea></label></div><button class="primary">সংরক্ষণ করুন</button></form>');$('#edit').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let logo=await upload(f.get('logo'),p.logo),item={id:key||id(),name:required(f,'name'),description:f.get('description').trim(),cat:f.get('cat'),price:paise(f.get('price')),stock:f.get('stock')===''?null:+f.get('stock'),limit:+f.get('limit'),logo};await change(d=>{let i=d.products.findIndex(x=>x.id===key);if(i<0)d.products.push(item);else{if(JSON.stringify(d.products[i])!==JSON.stringify(p))throw Error('স্টক বদলেছে। তালিকা আবার খুলুন।');d.products[i]=item}});$('#modal').close();render();notify('সংরক্ষিত হয়েছে')})}}
+function product(key){let p=state.products.find(p=>p.id===key)||{cat:filter||cats[0],stock:null,limit:3};dialog('<div class="title"><h2>'+(key?'পণ্য / সার্ভিস সম্পাদনা':'নতুন পণ্য / সার্ভিস')+'</h2>'+closeBtn+'</div><form id="edit"><div class="formgrid">'+field('name','নাম',p.name,'required maxlength="100"')+'<label>বিভাগ<select name="cat">'+options(cats,p.cat)+'</select></label>'+field('price','দাম (₹)',p.price===undefined?'':p.price/100,'required min="0" max="99999999" step=".01"','number')+field('stock','স্টক (সার্ভিস হলে খালি রাখুন)',p.stock??'','min="0" max="9999999" step="1"','number')+field('limit','কম স্টকের সীমা',p.limit,'required min="0" max="9999999"','number')+'<label>লোগো<input type="file" name="logo" accept="image/png,image/jpeg,image/webp"></label><label class="full">পণ্য বা সার্ভিসের বিবরণ (ঐচ্ছিক)<textarea name="description" rows="3" maxlength="1500">'+esc(p.description||'')+'</textarea></label></div><button class="primary">সংরক্ষণ করুন</button>'+(key?button('পণ্য মুছুন',"removeProduct('"+key+"')"):'')+'</form>');$('#edit').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let logo=await upload(f.get('logo'),p.logo),item={id:key||id(),name:required(f,'name'),description:f.get('description').trim(),cat:f.get('cat'),price:paise(f.get('price')),stock:f.get('stock')===''?null:+f.get('stock'),limit:+f.get('limit'),logo};await change(d=>{let i=d.products.findIndex(x=>x.id===key);if(i<0)d.products.push(item);else{if(JSON.stringify(d.products[i])!==JSON.stringify(p))throw Error('স্টক বদলেছে। তালিকা আবার খুলুন।');d.products[i]=item}});$('#modal').close();render();notify('সংরক্ষিত হয়েছে')})}}
 function required(f,k){let v=String(f.get(k)||'').trim();if(!v)throw Error('প্রয়োজনীয় তথ্য লিখুন');return v}
 function paise(n){let v=Math.round(Number(n)*100);if(!Number.isSafeInteger(v)||v<0)throw Error('সঠিক টাকা লিখুন');return v}
 async function submit(form,fn){let b=form.querySelector('button.primary');if(b.disabled)return;b.disabled=true;try{await fn(new FormData(form))}catch(e){alert(e.message)}finally{b.disabled=false}}
 async function upload(file,old){if(!file?.size)return old||'';if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>5000000)throw Error('৫ MB-এর মধ্যে PNG, JPG বা WebP লোগো দিন');let img=await createImageBitmap(file),scale=Math.min(1,180/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);img.close();return c.toDataURL('image/png')}
 function settings(){let s=state.shop;return heading('দোকানের সেটিংস')+'<section class="panel"><h2>রসিদের জন্য দোকানের তথ্য</h2><form id="profile"><div class="formgrid">'+field('name','দোকানের নাম',s.name,'required')+field('phone','মোবাইল নম্বর ১',s.phone,'','tel')+field('phone2','মোবাইল নম্বর ২ (ঐচ্ছিক)',s.phone2,'','tel')+field('email','ইমেল',s.email,'','email')+field('web','ওয়েবসাইট',s.web)+field('address','দোকানের ঠিকানা',s.address)+'<label>দোকানের লোগো<input name="logo" type="file" accept="image/png,image/jpeg,image/webp"></label><label class="full storefront-choice"><input type="checkbox" name="printStorefront" '+(s.printStorefront!==false?'checked':'')+'> রসিদে ড্যাশবোর্ডের দোকানের ছবি দেখান</label></div><button class="primary">সংরক্ষণ করুন</button></form></section><br><section class="panel"><h2>হিসাবের ব্যাকআপ</h2><p>হিসাব আপনার অ্যাডমিন অ্যাকাউন্টের ডেটাবেসে থাকে। নিয়মিত ব্যাকআপ ডাউনলোড করুন।</p><div class="actions">'+button('ব্যাকআপ ডাউনলোড','backup()')+'<label>ব্যাকআপ ফেরান<input type="file" accept=".json" onchange="restore(this)"></label></div></section>'}
-function bill(){return heading(correction?'বিল সংশোধন · '+esc(correction.original.no):'নতুন বিল', correction?button('বাতিল','nav(4)'):'')+'<div class="layoutbill"><section class="panel"><h2>পণ্য ও সার্ভিস বাছুন</h2>'+masterPanel()+'<h3>নিজস্ব পণ্য ও স্টক</h3><input placeholder="পণ্য বা সার্ভিস খুঁজুন…" aria-label="পণ্য খুঁজুন" oninput="catalog(this.value)"><div id="catalog"></div><hr><h3>কাস্টম সার্ভিস</h3><form id="custom">'+field('name','সার্ভিসের নাম','','required maxlength="100"')+field('price','দাম (₹)','','required min="0" max="99999999" step=".01"','number')+'<button>বিলে যোগ করুন</button></form></section><section class="panel"><h2>বিলের বিবরণ</h2><div id="lines"></div><form id="checkout"><div class="formgrid">'+field('name','কাস্টমারের নাম',draft.name,'required maxlength="100"')+field('phone','মোবাইল নম্বর (ঐচ্ছিক)',draft.phone,'pattern="[0-9]{10}" title="১০ সংখ্যার মোবাইল নম্বর" inputmode="numeric"','tel')+billAddressFields()+ownerField(draft.ownerId)+'<label>পেমেন্ট মোড<select name="mode">'+options(['Cash','COD','UPI'],draft.mode)+'</select></label>'+field('paid','পরিশোধিত টাকা (₹)',draft.paid??'','min="0" step=".01"','number')+'</div>'+'<p id="due"></p><button class="primary">'+(correction?'সংশোধন সংরক্ষণ করুন':'ইনভয়েস তৈরি করুন')+'</button></form></section></div>'}
+function bill(){return heading(correction?'বিল সংশোধন · '+esc(correction.original.no):'নতুন বিল', correction?button('বাতিল','nav(4)'):'')+'<div class="layoutbill"><section class="panel"><h2>পণ্য ও সার্ভিস বাছুন</h2>'+masterPanel()+'<h3>নিজস্ব পণ্য ও স্টক</h3><input placeholder="পণ্য বা সার্ভিস খুঁজুন…" aria-label="পণ্য খুঁজুন" oninput="catalog(this.value)"><div id="catalog"></div><hr><h3>কাস্টম সার্ভিস</h3><form id="custom">'+field('name','সার্ভিসের নাম','','required maxlength="100"')+field('price','দাম (₹)','','required min="0" max="99999999" step=".01"','number')+'<button>বিলে যোগ করুন</button></form></section><section class="panel"><h2>বিলের বিবরণ</h2><div id="lines"></div><form id="checkout"><input type="hidden" name="customerKey" value="'+esc(draft.customerKey||'')+'"><div class="formgrid">'+field('name','কাস্টমারের নাম',draft.name,'required maxlength="100"')+field('phone','মোবাইল নম্বর (ঐচ্ছিক)',draft.phone,'pattern="[0-9]{10}" title="১০ সংখ্যার মোবাইল নম্বর" inputmode="numeric"','tel')+billAddressFields()+ownerField(draft.ownerId)+'<label>পেমেন্ট মোড<select name="mode">'+options(['Cash','COD','UPI'],draft.mode)+'</select></label>'+field('paid','পরিশোধিত টাকা (₹)',draft.paid??'','min="0" step=".01"','number')+'</div>'+'<p id="due"></p><button class="primary">'+(correction?'সংশোধন সংরক্ষণ করুন':'ইনভয়েস তৈরি করুন')+'</button></form></section></div>'}
 function catalog(q=''){let ps=state.products.filter(p=>productMatches(p,q.toLowerCase()));$('#catalog').innerHTML=ps.map(p=>'<div class="listrow"><div>'+esc(p.name)+productDescription(p)+'<small>'+money(p.price)+' · '+esc(p.cat)+'</small></div>'+button('যোগ করুন',"addItem('"+p.id+"')")+'</div>').join('')||empty('box','পণ্য ও সার্ভিস বিভাগে আইটেম যোগ করুন বা কাস্টম সার্ভিস লিখুন।')}
 function addItem(key){let p=state.products.find(x=>x.id===key),l=cart.find(x=>x.product===key);if(!p)return notify('পণ্যটি আর তালিকায় নেই');if(p.stock!==null&&(l?.qty||0)>=p.stock+(correction?productUnits(correction.original.lines,key):0))return notify('পর্যাপ্ত স্টক নেই');if(l)l.qty++;else cart.push({product:key,name:p.name,price:p.price,qty:1,sourceName:p.name,sourcePrice:p.price});lines()}
 const total=()=>cart.reduce((n,l)=>n+l.price*l.qty,0);
@@ -50,14 +68,14 @@ function lines(){ if(!cart.some(l=>l.pvc)) cart=cart.filter(l=>!l.delivery); $('
 function adjust(i,d){if(cart[i].delivery){if(d<0)setDelivery('0');return}if(d===1&&cart[i].product)return addItem(cart[i].product);cart[i].qty+=d;if(!cart[i].qty)cart.splice(i,1);lines()}
 function due(){let p=$('#checkout').elements.paid;p.max=total()/100;$('#due').textContent='বাকি '+money(total()-Math.round((Number(p.value)||0)*100))}
 function commitBill(data,sale){if(!sale.lines.length)throw Error('বিলে অন্তত একটি আইটেম যোগ করুন');if(sale.paid>sale.total)throw Error('পরিশোধিত টাকা মোট বিলের চেয়ে বেশি');for(let l of sale.lines){if(!l.product)continue;let p=data.products.find(p=>p.id===l.product);if(!p||p.price!==(l.sourcePrice??l.price)||p.name!==(l.sourceName??l.name))throw Error('পণ্য বদলেছে। বিল থেকে বাদ দিয়ে আবার যোগ করুন।');if(p.stock!==null){if(p.stock<l.qty)throw Error(l.name+' পর্যাপ্ত স্টক নেই');p.stock-=l.qty}}sale.no='TT-'+String(data.sales.length+1).padStart(5,'0');sale.shop={...data.shop};data.sales.push(sale)}
-function bindBill(){bindMaster();catalog();lines();$('#custom').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target);try{cart.push({product:null,name:required(f,'name'),price:paise(f.get('price')),qty:1});lines();e.target.reset()}catch(err){notify(err.message)}};$('#checkout').oninput=e=>{draft=Object.fromEntries(new FormData(e.currentTarget));due()};$('#checkout').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let sale={id:id(),at:new Date().toISOString(),name:required(f,'name'),ownerId:billingOwner(f),phone:f.get('phone'),address:f.get('address').trim(),addressParts:readAddress(f),mode:f.get('mode'),paid:paise(f.get('paid')),total:total(),lines:structuredClone(cart)};const original=correction?.original;await change(d=>original?correctSale(d,original,sale):commitBill(d,sale));if(original){endCorrection()}else{cart=[];draft={}}nav(4);showSale(original?.id??sale.id)})}}
-function billAddressFields() {
+function bindBill(){bindMaster();catalog();lines();$('#custom').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target);try{cart.push({product:null,name:required(f,'name'),price:paise(f.get('price')),qty:1});lines();e.target.reset()}catch(err){notify(err.message)}};$('#checkout').oninput=e=>{draft=Object.fromEntries(new FormData(e.currentTarget));due()};$('#checkout').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let sale={id:id(),at:new Date().toISOString(),customerKey:f.get('customerKey')||null,name:required(f,'name'),ownerId:billingOwner(f),phone:f.get('phone'),address:f.get('address').trim(),addressParts:readAddress(f),mode:f.get('mode'),paid:paise(f.get('paid')),total:total(),lines:structuredClone(cart)};const original=correction?.original;await change(d=>original?correctSale(d,original,sale):commitBill(d,sale));if(original){endCorrection()}else{cart=[];draft={}}nav(4);showSale(original?.id??sale.id)})}}
+function billAddressFields(values=draft) {
   const text = (key, label, limit = 100) =>
-    field(key, label, draft[key], 'maxlength="' + limit + '"');
+    field(key, label, values[key], 'maxlength="' + limit + '"');
   return '<fieldset class="bill-address full"><legend>কাস্টমারের ঠিকানা (ঐচ্ছিক)</legend><div class="formgrid">' +
     text('address', 'বাড়ি, রাস্তা বা পাড়ার নাম', 300) +
     text('locality', 'গ্রাম / শহর') + text('postOffice', 'পোস্ট অফিস') +
-    field('pin', 'পিনকোড', draft.pin, 'inputmode="numeric" maxlength="6" pattern="[0-9০-৯]{6}" title="৬ সংখ্যার পিনকোড দিন"') +
+    field('pin', 'পিনকোড', values.pin, 'inputmode="numeric" maxlength="6" pattern="[0-9০-৯]{6}" title="৬ সংখ্যার পিনকোড দিন"') +
     text('district', 'জেলা') + text('region', 'রাজ্য') + '</div></fieldset>';
 }
 const addressKeys = ['locality', 'postOffice', 'pin', 'district', 'region'];
@@ -106,12 +124,12 @@ function receipt(sale) {
     '</div></div><p class="receipt-reminder">দোকান ছাড়ার আগে বিলটি মিলিয়ে নিন। কোনো সমস্যা বা অভিযোগ থাকলে এই বিলটি সঙ্গে আনুন।</p></article>';
 }
 function showSale(key){let s=state.sales.find(s=>s.id===key),html=receipt(s);$('#paper').innerHTML=html;dialog('<div class="title">'+button('A4 প্রিন্ট / PDF','window.print()','primary')+button('বিল সংশোধন',"beginCorrection('"+s.id+"')")+closeBtn+'</div>'+html)}
-function historyView(key){let c=customers().find(c=>c.key===key);dialog('<div class="title"><h2>'+esc(c.name)+'</h2>'+closeBtn+'</div><p>'+esc(c.phone||c.sales[0].no)+' · মোট বাকি '+money(c.due)+'</p><small>'+esc(addressLines(c.sales[0]).join(', '))+'</small>'+c.sales.map(saleRow).join(''))}
+function historyView(key){let c=customers().find(c=>c.key===key);dialog('<div class="title"><h2>'+esc(c.name)+'</h2>'+closeBtn+'</div><p>'+esc(c.phone||(c.sales[0]?.no || 'নতুন কাস্টমার'))+' · মোট বাকি '+money(c.due)+'</p><small>'+esc(addressLines(c).join(', '))+'</small>'+'<div class="actions">'+button('নতুন বিল',"contactBill('"+key+"')")+button('সম্পাদনা',"contactForm('"+key+"')")+button('ব্যক্তিগত তথ্য মুছুন',"removeContact('"+key+"')")+'</div>'+c.sales.map(saleRow).join(''))}
 function backup(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({version:1,data:state})],{type:'application/json'}));a.download='tarafdar-'+dateKey(new Date())+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 const validId=k=>typeof k==='string'&&/^[a-f0-9-]{36}$/i.test(k),nat=n=>Number.isSafeInteger(n)&&n>=0,str=s=>typeof s==='string',logo=s=>s===''||typeof s==='string'&&/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(s),profile=p=>p&&['name','phone','web','address','email'].every(k=>str(p[k]))&&(p.phone2===undefined||str(p.phone2))&&logo(p.logo);
-function validData(d){return d&&profile(d.shop)&&Array.isArray(d.products)&&Array.isArray(d.sales)&&d.products.every(p=>validId(p.id)&&str(p.name)&&(p.description===undefined||str(p.description))&&cats.includes(p.cat)&&nat(p.price)&&(p.stock===null||nat(p.stock))&&nat(p.limit)&&logo(p.logo))&&d.sales.every(s=>validId(s.id)&&str(s.name)&&str(s.address)&&(s.addressParts===undefined||(s.addressParts&&addressKeys.every(k=>str(s.addressParts[k]))))&&(s.phone===''||(str(s.phone)&&/^\d{10}$/.test(s.phone)))&&/^TT-\d+$/.test(s.no)&&Number.isFinite(Date.parse(s.at))&&profile(s.shop)&&['Cash','COD','UPI'].includes(s.mode)&&nat(s.paid)&&nat(s.total)&&s.paid<=s.total&&Array.isArray(s.lines)&&s.lines.length&&s.lines.every(l=>(l.product===null||validId(l.product))&&str(l.name)&&nat(l.price)&&nat(l.qty)&&l.qty>0)&&s.lines.reduce((n,l)=>n+l.price*l.qty,0)===s.total)}
-async function restore(input){try{let b=JSON.parse(await input.files[0].text());if(b.version!==1||!validData(b.data))throw Error('সঠিক ব্যাকআপ ফাইল বাছুন');if(!confirm('বর্তমান হিসাব বদলে ব্যাকআপের হিসাব ফেরাবেন?'))return;await change(d=>Object.assign(d,b.data));cart=[];draft={};render();notify('ব্যাকআপ ফেরানো হয়েছে')}catch(e){alert(e.message)}finally{input.value=''}}
-function render(){$('#nav').innerHTML=pages.map((p,i)=>(i===0?'<div class="navlabel">প্রধান মেনু</div>':i===5?'<div class="navlabel">ব্যবস্থাপনা</div>':'')+button(ic(icons[i])+p,'nav('+i+')',page===i?'active':'')).join('');$('#crumb').textContent='দোকান পরিচালনা  /  '+pages[page];$('#today').textContent=date(Date.now());$('#main').innerHTML=page===0?dashboard():page===1?bill():page===5?settings():heading(pages[page],page===2?button(ic('plus')+' নতুন আইটেম','product()','primary'):'')+'<section class="panel">'+searchBar(page===2)+'<div id="list">'+list()+'</div></section>';if(page===1)bindBill();if(page===5)$('#profile').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let shop={...Object.fromEntries(f),name:required(f,'name'),printStorefront:f.has('printStorefront'),logo:await upload(f.get('logo'),state.shop.logo)};await change(d=>d.shop=shop);notify('দোকানের তথ্য সংরক্ষিত হয়েছে')})}}
+function validData(d){return d&&(!d.contacts||(Array.isArray(d.contacts)&&d.contacts.every(c=>validId(c.id)&&str(c.name)&&str(c.address)&&(c.phone===''||/^\d{10}$/.test(c.phone)))))&&(!d.retiredProducts||(Array.isArray(d.retiredProducts)&&d.retiredProducts.every(p=>validId(p.id)&&(p.stock===null||nat(p.stock)))))&&profile(d.shop)&&Array.isArray(d.products)&&Array.isArray(d.sales)&&d.products.every(p=>validId(p.id)&&str(p.name)&&(p.description===undefined||str(p.description))&&cats.includes(p.cat)&&nat(p.price)&&(p.stock===null||nat(p.stock))&&nat(p.limit)&&logo(p.logo))&&d.sales.every(s=>validId(s.id)&&str(s.name)&&str(s.address)&&(s.addressParts===undefined||(s.addressParts&&addressKeys.every(k=>str(s.addressParts[k]))))&&(s.phone===''||(str(s.phone)&&/^\d{10}$/.test(s.phone)))&&/^TT-\d+$/.test(s.no)&&Number.isFinite(Date.parse(s.at))&&profile(s.shop)&&['Cash','COD','UPI'].includes(s.mode)&&nat(s.paid)&&nat(s.total)&&s.paid<=s.total&&Array.isArray(s.lines)&&s.lines.length&&s.lines.every(l=>(l.product===null||validId(l.product))&&str(l.name)&&nat(l.price)&&nat(l.qty)&&l.qty>0)&&s.lines.reduce((n,l)=>n+l.price*l.qty,0)===s.total)}
+async function restore(input){try{let b=JSON.parse(await input.files[0].text());if(b.version!==1||!validData(b.data))throw Error('সঠিক ব্যাকআপ ফাইল বাছুন');if(!confirm('বর্তমান হিসাব বদলে ব্যাকআপের হিসাব ফেরাবেন?'))return;await change(d=>Object.assign(d,{contacts:[],retiredProducts:[]},b.data));cart=[];draft={};render();notify('ব্যাকআপ ফেরানো হয়েছে')}catch(e){alert(e.message)}finally{input.value=''}}
+function render(){$('#nav').innerHTML=pages.map((p,i)=>(i===0?'<div class="navlabel">প্রধান মেনু</div>':i===5?'<div class="navlabel">ব্যবস্থাপনা</div>':'')+button(ic(icons[i])+p,'nav('+i+')',page===i?'active':'')).join('');$('#crumb').textContent='দোকান পরিচালনা  /  '+pages[page];$('#today').textContent=date(Date.now());$('#main').innerHTML=page===0?dashboard():page===1?bill():page===5?settings():heading(pages[page],page===2?button(ic('plus')+' নতুন আইটেম','product()','primary'):page===3?button('নতুন কাস্টমার','contactForm()','primary'):'')+'<section class="panel">'+searchBar(page===2)+'<div id="list">'+list()+'</div></section>';if(page===1)bindBill();if(page===5)$('#profile').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let shop={...Object.fromEntries(f),name:required(f,'name'),printStorefront:f.has('printStorefront'),logo:await upload(f.get('logo'),state.shop.logo)};await change(d=>d.shop=shop);notify('দোকানের তথ্য সংরক্ষিত হয়েছে')})}}
 $('#menu').onclick=()=>$('aside').classList.toggle('open');
 
 
@@ -995,14 +1013,14 @@ function correctSale(data, original, revised) {
   for (const key of keys) {
     const extra = productUnits(revised.lines, key) - productUnits(original.lines, key);
     if (!extra) continue;
-    const product = data.products.find(item => item.id === key);
+    const product = data.products.find(item => item.id === key) || (data.retiredProducts||[]).find(item=>item.id===key);
     if (!product) throw Error('সংশ্লিষ্ট পণ্যটি স্টক তালিকায় পাওয়া যায়নি।');
     if (product.stock === null) continue;
     if (product.stock < extra) throw Error(product.name + ' পর্যাপ্ত স্টক নেই।');
     updates.push([product,product.stock-extra]);
   }
   for (const [product,stock] of updates) product.stock = stock;
-  data.sales[index] = {...original,...revised,id:original.id,no:original.no,at:original.at,shop:original.shop};
+  data.sales[index] = {...original,...revised,customerRemoved:original.customerRemoved && revised.name===original.name && !revised.phone && !revised.address && !Object.values(revised.addressParts||{}).some(Boolean),id:original.id,no:original.no,at:original.at,shop:original.shop};
 }
 
 const billingOwners = [
@@ -1046,3 +1064,69 @@ receiptStyles.textContent = `
 @media print{.invoice .receipt-meta,.invoice .invoice-buyer{break-after:avoid}.invoice .receipt-settlement{page-break-inside:avoid}.invoice th{print-color-adjust:exact}}
 `;
 document.head.append(receiptStyles);
+
+function finishManagement() {
+  $('#modal').close();
+  $('#paper').replaceChildren();
+  render();
+}
+async function removeProduct(key) {
+  const item=state.products.find(p=>p.id===key);
+  if(!item || !confirm('“'+item.name+'” পণ্যের তালিকা থেকে মুছবেন? আগের বিল থাকবে।')) return;
+  try {
+    await change(data=>{
+      if(JSON.stringify(data.products.find(p=>p.id===key))!==JSON.stringify(item))throw Error('পণ্যের তথ্য বদলেছে। আবার খুলুন।');
+      data.products=data.products.filter(p=>p.id!==key);
+      if(data.sales.some(s=>s.lines.some(l=>l.product===key)))
+        (data.retiredProducts??=[]).push({id:key,stock:item.stock});
+    });
+    finishManagement();
+  } catch(error){alert(error.message)}
+}
+function contactBill(key) {
+  const c=customers().find(entry=>entry.key===key);
+  if(!c)return;
+  if(draft.name && !confirm('চলতি বিলের কাস্টমারের তথ্য বদলাবেন?'))return;
+  draft={...draft,name:c.name,phone:c.phone,address:c.address,...Object.fromEntries(addressKeys.map(k=>[k,c.addressParts?.[k]||''])),customerKey:c.phone?'':key};
+  $('#modal').close();nav(1);
+}
+function updateContact(data, previous, details) {
+  if(previous && JSON.stringify(customers(data).find(c=>c.key===previous.key))!==JSON.stringify(previous)) throw Error('কাস্টমারের হিসাব বদলেছে। খাতা আবার খুলুন।');
+  const contacts=data.contacts??=[];
+  const known=previous && contacts.find(c=>(c.phone||c.id)===previous.key);
+  if(details?.phone && customers(data).some(c=>c.phone===details.phone && c.key!==previous?.key))
+    throw Error('এই মোবাইল নম্বরে একটি কাস্টমার আছে। খাতা থেকে সেই কাস্টমারটি খুলুন।');
+  const recordId=known?.id || (previous && validId(previous.key)?previous.key:id());
+  if(known)contacts.splice(contacts.indexOf(known),1);
+  if(details)contacts.push({...details,id:recordId});
+  for(const sale of previous?.sales || []) {
+    const record=data.sales.find(s=>s.id===sale.id);
+    if(details) Object.assign(record,details,{customerKey:recordId});
+    else Object.assign(record,{name:'পরিচয় মুছে ফেলা হয়েছে',phone:'',address:'',addressParts:undefined,customerKey:null,customerRemoved:true});
+  }
+}
+function contactForm(key) {
+  const previous=customers().find(c=>c.key===key);
+  const c=previous||{};
+  dialog('<div class="title"><h2>'+ (previous?'কাস্টমার সম্পাদনা':'নতুন কাস্টমার')+'</h2>'+closeBtn+'</div><form id="contactEditor">'+
+    field('name','নাম',c.name,'required maxlength="100"')+field('phone','মোবাইল (ঐচ্ছিক)',c.phone,'pattern="[0-9]{10}" inputmode="numeric"','tel')+
+    billAddressFields({...c,...c.addressParts})+(previous?.sales.length?'<p>এই কাস্টমারের '+bn(previous.sales.length)+'টি বিলেও পরিচয় ও ঠিকানা সংশোধন হবে।</p>':'')+
+    '<button class="primary">সংরক্ষণ করুন</button></form>');
+  $('#contactEditor').onsubmit=e=>{
+    e.preventDefault();
+    submit(e.target,async f=>{
+      const details={name:required(f,'name'),phone:f.get('phone').trim(),address:f.get('address').trim(),addressParts:readAddress(f)};
+      await change(data=>updateContact(data,previous,details));
+      finishManagement();
+    });
+  };
+}
+async function removeContact(key) {
+  const c=customers().find(entry=>entry.key===key);
+  if(!c || !confirm(c.name+'-এর নাম, মোবাইল ও ঠিকানা খাতা এবং সংশ্লিষ্ট '+bn(c.sales.length)+'টি বিল থেকে মুছবেন? মোট বিল ও বাকি থাকবে।'))return;
+  try {
+    await change(data=>updateContact(data,c,null));
+    if(draft.customerKey===key || (c.phone && draft.phone===c.phone) || (correction && c.sales.some(s=>s.id===correction.original.id)))draft={};
+    finishManagement();
+  } catch(error){alert(error.message)}
+}
