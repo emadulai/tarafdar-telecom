@@ -79,14 +79,14 @@ function due(){let p=$('#checkout').elements.paid;p.max=total()/100;$('#due').te
 function commitBill(data,sale){if(!sale.lines.length)throw Error('Add at least one item');if(sale.paid>sale.total)throw Error('Amount paid exceeds the bill total');for(let l of sale.lines){if(!l.product)continue;let p=data.products.find(p=>p.id===l.product);if(!p||p.price!==(l.sourcePrice??l.price)||p.name!==(l.sourceName??l.name))throw Error('The product has changed. Remove it and add it again.');if(p.stock!==null){if(p.stock<l.qty)throw Error(l.name+' Insufficient stock');p.stock-=l.qty}}sale.no='TT-'+String(data.sales.length+1).padStart(5,'0');sale.shop={...data.shop};data.sales.push(sale)}
 function bindBill(){bindPinLookup($("#checkout"));catalog();lines();$('#custom').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target);try{cart.push({product:null,name:required(f,'name'),price:paise(f.get('price')),qty:1});lines();e.target.reset()}catch(err){notify(err.message)}};$('#checkout').oninput=e=>{draft=Object.fromEntries(new FormData(e.currentTarget));due()};$('#checkout').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let sale={id:id(),at:new Date().toISOString(),customerKey:f.get('customerKey')||null,name:required(f,'name'),ownerId:billingOwner(f),phone:f.get('phone'),address:f.get('address').trim(),addressParts:readAddress(f),mode:f.get('mode'),paid:paise(f.get('paid')),total:total(),lines:structuredClone(cart)};const original=correction?.original;await change(d=>original?correctSale(d,original,sale):commitBill(d,sale));if(original){endCorrection()}else{cart=[];draft={}}nav(4);showSale(original?.id??sale.id)})}}
 function billAddressFields(values=draft) {
-  const text = (key, label, limit = 100) =>
-    field(key, label, values[key], 'maxlength="' + limit + '"');
-  return '<fieldset class="bill-address full"><legend>Customer address (optional)</legend><div class="formgrid">' +
-    field('pin', 'West Bengal PIN code', values.pin, 'inputmode="numeric" maxlength="6" pattern="[0-9\u09e6-\u09ef]{6}" title="Enter a 6-digit PIN code"') +
-    '<small data-pin-status role="status" class="full"></small><label data-pin-choice hidden class="full">Choose post office<select></select></label>' +
-    text('address', 'House, street or neighbourhood', 300) +
-    text('locality', 'Village or town') + text('postOffice', 'Post office') +
-    text('district', 'District') + text('region', 'State') + '</div></fieldset>';
+  const text = (key, label, limit = 100) => field(key,label,values[key],'maxlength="'+limit+'"');
+  return '<fieldset class="bill-address full"><legend>Customer address <span>(optional)</span></legend><div class="address-fields">' +
+    field('pin','West Bengal PIN code',values.pin,'inputmode="numeric" maxlength="6" pattern="[0-9\u09e6-\u09ef]{6}" title="Enter a 6-digit PIN code"') +
+    '<label data-pin-choice hidden>Choose post office<select></select></label>' +
+    '<small data-pin-status role="status"></small>' +
+    '<div class="address-street">'+text('address','House, street or neighbourhood',300)+'</div>' +
+    text('locality','Village or town') + text('postOffice','Post office') +
+    text('district','District') + text('region','State') + '</div></fieldset>';
 }
 const addressKeys = ['locality', 'postOffice', 'pin', 'district', 'region'];
 function readAddress(form) {
@@ -96,12 +96,14 @@ function readAddress(form) {
 }
 function addressLines(sale) {
   const parts = sale.addressParts || {};
-  const postal = [parts.postOffice && 'P.O. ' + parts.postOffice, parts.pin && 'PIN ' + parts.pin];
-  return [
-    [sale.address, parts.locality].filter(Boolean).join(', '),
-    postal.filter(Boolean).join(' · '),
-    [parts.district, parts.region].filter(Boolean).join(', ')
-  ].filter(Boolean);
+  const place = [parts.locality, parts.postOffice && 'P.O. ' + parts.postOffice].filter(Boolean).join(', ');
+  const area = [parts.district, parts.region].filter(Boolean).join(', ');
+  return [sale.address, place, [area, parts.pin].filter(Boolean).join(' ')]
+    .map(value=>String(value||'').trim()).filter(Boolean);
+}
+function postalBlock(sale) {
+  const lines=addressLines(sale);
+  return lines.length ? '<address class="postal-block">'+lines.map(line=>'<div>'+esc(line)+'</div>').join('')+'</address>' : '';
 }
 function receipt(sale) {
   const shop = { ...sale.shop };
@@ -123,8 +125,8 @@ function receipt(sale) {
     paragraph(phones && 'Phone: ' + phones) + paragraph(shop.email) + paragraph(shop.web) +
     '</div></div><div class="receipt-meta"><h3>Sales receipt</h3><div><b>' + esc(sale.no) +
     '</b> · ' + date(sale.at) + '</div></div>' +
-    '<div class="invoice-buyer"><div><small>Customer</small><strong>' + esc(sale.name) +
-    '</strong>' + paragraph(sale.phone) + addressLines(sale).map(paragraph).join('') +
+    '<div class="invoice-buyer"><div class="bill-to"><small>Bill to</small><strong>' + esc(sale.name) +
+    '</strong>' + paragraph(sale.phone) + postalBlock(sale) +
     '</div><div class="invoice-mode"><small>Payment method</small><b>' + esc(sale.mode) +
     '</b></div></div><table><colgroup><col style="width:7%"><col><col style="width:12%">' +
     '<col style="width:19%"><col style="width:21%"></colgroup><thead><tr><th>No.</th><th>Product or service</th>' +
@@ -134,7 +136,7 @@ function receipt(sale) {
     '</div></div></article>';
 }
 function showSale(key){let s=state.sales.find(s=>s.id===key),html=receipt(s);$('#paper').innerHTML=html;dialog('<div class="title">'+button('A4 Print / PDF','window.print()','primary')+button('Edit invoice',"beginCorrection('"+s.id+"')")+closeBtn+'</div>'+html)}
-function historyView(key){let c=customers().find(c=>c.key===key);dialog('<div class="title"><h2>'+esc(c.name)+'</h2>'+closeBtn+'</div><p>'+esc(c.phone||(c.sales[0]?.no || 'New Customer'))+' · Total due '+money(c.due)+'</p><small>'+esc(addressLines(c).join(', '))+'</small>'+'<div class="actions">'+button('New Bill',"contactBill('"+key+"')")+button('Edit',"contactForm('"+key+"')")+button('Delete personal details',"removeContact('"+key+"')")+'</div>'+c.sales.map(saleRow).join(''))}
+function historyView(key){let c=customers().find(c=>c.key===key);dialog('<div class="title"><h2>'+esc(c.name)+'</h2>'+closeBtn+'</div><p>'+esc(c.phone||(c.sales[0]?.no || 'New Customer'))+' · Total due '+money(c.due)+'</p>'+postalBlock(c)+'<div class="actions">'+button('New Bill',"contactBill('"+key+"')")+button('Edit',"contactForm('"+key+"')")+button('Delete personal details',"removeContact('"+key+"')")+'</div>'+c.sales.map(saleRow).join(''))}
 function backup(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({version:1,data:state})],{type:'application/json'}));a.download='tarafdar-'+dateKey(new Date())+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 const validId=k=>typeof k==='string'&&/^[a-f0-9-]{36}$/i.test(k),nat=n=>Number.isSafeInteger(n)&&n>=0,str=s=>typeof s==='string',logo=s=>s===''||typeof s==='string'&&/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(s),profile=p=>p&&['name','phone','web','address','email'].every(k=>str(p[k]))&&(p.phone2===undefined||str(p.phone2))&&logo(p.logo);
 function validData(d){return d&&(!d.contacts||(Array.isArray(d.contacts)&&d.contacts.every(c=>validId(c.id)&&str(c.name)&&str(c.address)&&(c.phone===''||/^\d{10}$/.test(c.phone)))))&&(!d.retiredProducts||(Array.isArray(d.retiredProducts)&&d.retiredProducts.every(p=>validId(p.id)&&(p.stock===null||nat(p.stock)))))&&profile(d.shop)&&Array.isArray(d.products)&&Array.isArray(d.sales)&&d.products.every(p=>validId(p.id)&&str(p.name)&&(p.description===undefined||str(p.description))&&cats.includes(p.cat)&&nat(p.price)&&(p.stock===null||nat(p.stock))&&nat(p.limit)&&logo(p.logo))&&d.sales.every(s=>validId(s.id)&&str(s.name)&&str(s.address)&&(s.addressParts===undefined||(s.addressParts&&addressKeys.every(k=>str(s.addressParts[k]))))&&(s.phone===''||(str(s.phone)&&/^\d{10}$/.test(s.phone)))&&/^TT-\d+$/.test(s.no)&&Number.isFinite(Date.parse(s.at))&&profile(s.shop)&&['Cash','COD','UPI'].includes(s.mode)&&nat(s.paid)&&nat(s.total)&&s.paid<=s.total&&Array.isArray(s.lines)&&s.lines.length&&s.lines.every(l=>(l.product===null||validId(l.product))&&str(l.name)&&nat(l.price)&&nat(l.qty)&&l.qty>0)&&s.lines.reduce((n,l)=>n+l.price*l.qty,0)===s.total)}
@@ -1065,23 +1067,7 @@ function signatureFooter(sale) {
   return '<div class="receipt-sign"><div class="sign-space"></div><small>Authorised signature</small><strong>' +
     esc(owner.name)+'</strong><span>'+esc(owner.phone)+'</span></div>';
 }
-const receiptStyles = document.createElement('style');
-receiptStyles.textContent = `
-.invoice .receipt-meta{border-bottom:2px solid #244c74;padding:10px 0 8px}
-.invoice .receipt-meta h3{margin:0}
-.invoice .invoice-buyer{margin:14px 0;align-items:flex-start}
-.invoice .invoice-mode b,.invoice .invoice-mode small{display:block}
-.invoice th{background:#edf2f8;color:#163a63}
-.invoice td:nth-child(n+3),.invoice .invoice-totals b{font-variant-numeric:tabular-nums}
-.receipt-settlement{display:flex;align-items:flex-end;justify-content:space-between;gap:5%;margin:6mm 0;break-inside:avoid}
-.receipt-settlement .invoice-totals{width:48%;margin:0 0 0 auto}
-.receipt-settlement .invoice-totals>div:first-child{font-weight:bold}
-.receipt-sign{width:40%;max-width:57mm;text-align:center;font-size:10pt}
-.receipt-sign .sign-space{height:15mm;border-bottom:1px solid #697e94}
-.receipt-sign strong,.receipt-sign span{display:block}
-@media print{.invoice .receipt-meta,.invoice .invoice-buyer{break-after:avoid}.invoice .receipt-settlement{page-break-inside:avoid}.invoice th{print-color-adjust:exact}}
-`;
-document.head.append(receiptStyles);
+
 
 function finishManagement() {
   $('#modal').close();
@@ -1142,7 +1128,7 @@ function contactForm(key) {
 }
 async function removeContact(key) {
   const c=customers().find(entry=>entry.key===key);
-  if(!c || !confirm(c.name+'-: remove their name, mobile number and address from the ledger and '+bn(c.sales.length)+' linked invoices? Invoice totals and balances will be retained.'))return;
+  if(!c || !confirm('Remove '+c.name+'’s name, mobile number and address from the ledger and '+bn(c.sales.length)+' linked invoices? Invoice totals and balances will be retained.'))return;
   try {
     await change(data=>updateContact(data,c,null));
     if(draft.customerKey===key || (c.phone && draft.phone===c.phone) || (correction && c.sales.some(s=>s.id===correction.original.id)))draft={};
@@ -1220,3 +1206,4 @@ function bindPinLookup(form) {
     } finally {clearTimeout(timeout)}
   });
 }
+

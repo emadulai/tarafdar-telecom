@@ -33,3 +33,65 @@
 .receipt-meta{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 12px;border-bottom:1px solid #b8c6d9;padding:10px 0;color:#213c60}
 @media screen and (max-width:520px){.receipt-banner{padding:12px 3% 12px 40%;min-height:120px}.invoice .banner-details p{font-size:12px}}
 @media print{.receipt-banner{min-height:38mm;padding-top:4mm;padding-bottom:4mm}.invoice .banner-details h2{font-size:19pt}.invoice .banner-details p{font-size:10pt}}
+
+
+
+.invoice .receipt-meta{border-bottom:2px solid #244c74;padding:10px 0 8px}
+.invoice .receipt-meta h3{margin:0}
+.invoice .invoice-buyer{margin:14px 0;align-items:flex-start}
+.invoice .invoice-mode b,.invoice .invoice-mode small{display:block}
+.invoice th{background:#edf2f8;color:#163a63}
+.invoice td:nth-child(n+3),.invoice .invoice-totals b{font-variant-numeric:tabular-nums}
+.receipt-settlement{display:flex;align-items:flex-end;justify-content:space-between;gap:5%;margin:6mm 0;break-inside:avoid}
+.receipt-settlement .invoice-totals{width:48%;margin:0 0 0 auto}
+.receipt-settlement .invoice-totals>div:first-child{font-weight:bold}
+.receipt-sign{width:40%;max-width:57mm;text-align:center;font-size:10pt}
+.receipt-sign .sign-space{height:15mm;border-bottom:1px solid #697e94}
+.receipt-sign strong,.receipt-sign span{display:block}
+@media print{.invoice .receipt-meta,.invoice .invoice-buyer{break-after:avoid}.invoice .receipt-settlement{page-break-inside:avoid}.invoice th{print-color-adjust:exact}}
+
+/* Customer details use the same layout in billing and the customer ledger. */
+.bill-address{padding:10px 14px 14px}
+.bill-address legend{font-size:15px;line-height:1.4}
+.bill-address legend span{font-size:12px;font-weight:400;color:#64748a}
+.address-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px;align-items:end}
+.address-fields label,#checkout .formgrid>label,#contactEditor>label{min-width:0;font-size:14px;line-height:1.4}
+.address-fields input,.address-fields select{margin:4px 0 0}
+.address-street,.address-fields [data-pin-status]{grid-column:1/-1}
+.address-fields [data-pin-status]:empty{display:none}
+#contactEditor>.bill-address{margin:4px 0 14px}
+.postal-block{font-style:normal;line-height:1.45;color:#42556e;margin:4px 0 0;overflow-wrap:anywhere}
+.invoice .bill-to{min-width:0}
+.invoice-buyer small{font-size:.85em;line-height:1.3;margin-bottom:3px;font-weight:600}
+.invoice .bill-to strong{line-height:1.35}
+#modal .actions{margin:10px 0}
+@media screen and (max-width:600px){
+  #modal{padding:16px;width:96%;max-width:100%;max-height:92vh}
+  #modal .title,main>.title{flex-wrap:wrap;align-items:center}
+  .formgrid,.address-fields{row-gap:10px}
+  .bill-address{padding:8px 10px 12px}
+  .address-fields{column-gap:10px}
+  .address-fields input,.address-fields select,.formgrid input,.formgrid select{font-size:16px;padding:8px}
+  .address-fields [data-pin-choice]{grid-column:1/-1}
+  #lines .listrow{flex-wrap:wrap;gap:6px 10px}
+  #lines .listrow>div:first-child,.listrow>div{min-width:0;overflow-wrap:anywhere}
+  #lines .listrow button{padding:6px 10px}
+  .workspace header{gap:7px}
+  #crumb{min-width:0;line-height:1.2}
+  header time{font-size:12px;line-height:1.2;text-align:right}
+  #logout{white-space:nowrap;padding:6px 8px}
+  .invoice{padding:0}
+  .invoice .invoice-mode{max-width:32%}
+  .invoice .invoice-buyer{gap:12px}
+  .invoice .invoice-totals>div{gap:5px}
+  .invoice td,.invoice th{padding:6px 3px;font-size:12px}
+  .invoice .receipt-settlement{gap:3%}
+  .invoice .receipt-sign{font-size:12px}
+  .actions>input,.actions>select{min-width:0}
+}
+@media screen and (max-width:380px){
+  .stats{gap:5px}.stats .card{padding:8px}.stats .card strong{font-size:19px}
+  .invoice .receipt-meta{gap:3px}
+  .actions{gap:6px}
+}
+@media print{.invoice .postal-block{font-size:10pt;line-height:1.4}.invoice-buyer .bill-to{max-width:72%}}

@@ -12,7 +12,7 @@ const configured = /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(shopBackend.url)
   && shopBackend.publishableKey.startsWith('sb_publishable_');
 
 function remember(session) {
-  if (!session.access_token || !session.refresh_token) throw Error('সেশন পাওয়া যায়নি।');
+  if (!session.access_token || !session.refresh_token) throw Error('Session unavailable.');
   const next = {
     access_token: session.access_token,
     refresh_token: session.refresh_token,
@@ -35,13 +35,13 @@ async function refreshSession() {
     method: 'POST', headers: {apikey: shopBackend.publishableKey, 'Content-Type': 'application/json'},
     body: JSON.stringify({refresh_token: previous.refresh_token}), cache: 'no-store', redirect: 'error'
   });
-  if (currentSession !== previous) throw Error('সেশন বদলেছে।');
+  if (currentSession !== previous) throw Error('Session changed.');
   if (!response.ok) {
     if ([400,401,403].includes(response.status)) {
       forget();
       location.reload();
     }
-    throw Error('সেশন নবীকরণ করা যায়নি। সংযোগ পরীক্ষা করুন।');
+    throw Error('Could not renew your session. Check your connection.');
   }
   const session = await response.json();
   if (currentSession === previous) remember(session);
@@ -58,21 +58,21 @@ async function request(path, options = {}) {
     ...options, headers, cache: 'no-store', credentials: 'omit', redirect: 'error'
   });
   if (response.status === 401 && path.startsWith('/rest/')) { forget(); location.reload(); }
-  if (!response.ok) throw Error('অনুরোধ সফল হয়নি। সংযোগ এবং অ্যাকাউন্টের অনুমতি পরীক্ষা করুন।');
+  if (!response.ok) throw Error('Request failed. Check your connection and account permissions.');
   return response;
 }
 const rowPath = '/rest/v1/tarafdar_shop?id=eq.1';
 async function readShop() {
   const response = await request(rowPath + '&select=ledger,revision');
   const rows = await response.json();
-  if (rows.length !== 1) throw Error('এই অ্যাকাউন্টে দোকান পরিচালনার অনুমতি নেই।');
+  if (rows.length !== 1) throw Error('This account cannot access the shop.');
   const record = rows[0];
-  if (record.ledger !== null && !validData(record.ledger)) throw Error('হিসাব লোড করা যায়নি।');
+  if (record.ledger !== null && !validData(record.ledger)) throw Error('Could not load the ledger.');
   state = record.ledger ?? start();
   revision = record.revision;
 }
 async function change(update) {
-  if (!accessToken || saving) throw Error('আগের কাজটি শেষ হওয়া পর্যন্ত অপেক্ষা করুন।');
+  if (!accessToken || saving) throw Error('Please wait for the current operation to finish.');
   saving = true;
   try {
     const next = structuredClone(state);
@@ -85,14 +85,14 @@ async function change(update) {
       });
       rows = await response.json();
     } catch {
-      alert('সংরক্ষণের ফল নিশ্চিত হয়নি। আবার লগইন করে সর্বশেষ বিল মিলিয়ে দেখুন।');
+      alert('The save could not be confirmed. Sign in again and check your latest invoice.');
       location.reload();
-      throw Error('হিসাব পুনরায় খুলুন।');
+      throw Error('Reopen the ledger.');
     }
     if (rows.length !== 1) {
       await readShop();
       render();
-      throw Error('অন্য ডিভাইসে হিসাব বদলেছে। সর্বশেষ হিসাব দেখে আবার সংরক্ষণ করুন।');
+      throw Error('The ledger changed on another device. Review the latest ledger and save again.');
     }
     state = next;
     revision = rows[0].revision;
@@ -112,7 +112,7 @@ loginForm.onsubmit = async event => {
   event.preventDefault();
   const button = loginForm.querySelector('button');
   button.disabled = true;
-  loginStatus.textContent = 'লগইন হচ্ছে…';
+  loginStatus.textContent = 'Signing in…';
   try {
     const fields = new FormData(loginForm);
     const response = await request('/auth/v1/token?grant_type=password', {
@@ -123,13 +123,13 @@ loginForm.onsubmit = async event => {
     await showShop();
   } catch (error) {
     forget();
-    loginStatus.textContent = error.message + ' ইমেল ও পাসওয়ার্ড যাচাই করুন।';
+    loginStatus.textContent = error.message + ' Check your email and password.';
   } finally {
     button.disabled = false;
   }
 };
 document.getElementById('logout').onclick = async () => {
-  if (saving) return notify('হিসাব সংরক্ষণ হচ্ছে। একটু অপেক্ষা করুন।');
+  if (saving) return notify('Saving the ledger. Please wait.');
   document.getElementById('modal').close();
   document.getElementById('layout').hidden = true;
   document.getElementById('paper').replaceChildren();
@@ -140,7 +140,7 @@ document.getElementById('logout').onclick = async () => {
 };
 if (!configured) {
   loginForm.querySelector('button').disabled = true;
-  loginStatus.textContent = 'প্রথম সেটআপ বাকি। config.js-এ Supabase Project URL ও Publishable key দিন।';
+  loginStatus.textContent = 'Setup required. Add your Supabase project URL and publishable key to config.js.';
 }
 if (configured) restoreLogin();
 async function restoreLogin() {
@@ -150,12 +150,13 @@ async function restoreLogin() {
     const saved = sessionStorage.getItem(sessionKey);
     if (!saved) return;
     remember(JSON.parse(saved));
-    loginStatus.textContent = 'আগের সেশন খুলছে…';
+    loginStatus.textContent = 'Restoring your session…';
     await showShop();
   } catch (error) {
-    loginStatus.textContent = 'খাতা খোলা যায়নি। সংযোগ দেখে রিফ্রেশ করুন বা আবার লগইন করুন।';
+    loginStatus.textContent = 'Could not open the ledger. Check your connection, refresh or sign in again.';
   } finally {
     button.disabled = false;
   }
 }
 window.addEventListener('pageshow', event => { if (event.persisted) location.reload(); });
+
