@@ -76,7 +76,10 @@ function addressLines(sale) {
   ].filter(Boolean);
 }
 function receipt(sale) {
-  const shop = sale.shop;
+  const shop = { ...sale.shop };
+  for (const key of ['address', 'phone', 'phone2', 'email', 'web']) {
+    if (!shop[key]?.trim()) shop[key] = state.shop[key] || '';
+  }
   const paragraph = value => value ? '<p>' + esc(value) + '</p>' : '';
   const phones = [shop.phone, shop.phone2].filter(Boolean).join(' / ');
   const useStorefront = shop.printStorefront !== false || !shop.logo;
@@ -88,7 +91,7 @@ function receipt(sale) {
     money(line.price * line.qty) + '</td></tr>').join('');
   return '<article class="receipt invoice"><div class="receipt-banner">' +
     '<img class="banner-art' + (useStorefront ? '' : ' custom-art') + '" alt="" src="' + bannerImage + '">' +
-    '<div class="banner-details"><h2>' + esc(shop.name) + '</h2>' + paragraph(shop.address) +
+    '<div class="banner-details"><h2>' + esc(shop.name) + '</h2>' + String(shop.address).split(/\r?\n/).map(paragraph).join('') +
     paragraph(phones && 'ফোন: ' + phones) + paragraph(shop.email) + paragraph(shop.web) +
     '</div></div><div class="receipt-meta"><h3>বিক্রয় রসিদ</h3><div><b>' + esc(sale.no) +
     '</b> · ' + date(sale.at) + '</div></div>' +
