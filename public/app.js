@@ -60,23 +60,33 @@ function paise(n){let v=Math.round(Number(n)*100);if(!Number.isSafeInteger(v)||v
 async function submit(form,fn){let b=form.querySelector('button.primary');if(b.disabled)return;b.disabled=true;try{await fn(new FormData(form))}catch(e){alert(e.message)}finally{b.disabled=false}}
 async function upload(file,old){if(!file?.size)return old||'';if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>5000000)throw Error('Choose a PNG, JPG or WebP logo up to 5 MB');let img=await createImageBitmap(file),scale=Math.min(1,180/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);img.close();return c.toDataURL('image/png')}
 function settings(){let s=state.shop;return heading('Shop settings')+'<section class="panel"><h2>Shop details for receipts</h2><form id="profile"><div class="formgrid">'+field('name','Shop name',s.name,'required')+field('phone','Mobile number 1',s.phone,'','tel')+field('phone2','Mobile number 2 (optional)',s.phone2,'','tel')+field('email','Email',s.email,'','email')+field('web','Website',s.web)+field('address','Shop address',s.address)+'<label>Shop logo<input name="logo" type="file" accept="image/png,image/jpeg,image/webp"></label><label class="full storefront-choice"><input type="checkbox" name="printStorefront" '+(s.printStorefront!==false?'checked':'')+'> Show the storefront artwork on receipts</label></div><button class="primary">Save</button></form></section><br><section class="panel"><h2>Ledger backup</h2><p>Your ledger is stored in your admin account database. Download a backup regularly.</p><div class="actions">'+button('Download backup','backup()')+'<label>Restore backup<input type="file" accept=".json" onchange="restore(this)"></label></div></section>'}
-function bill(){return heading(correction?'Edit invoice · '+esc(correction.original.no):'New Bill', correction?button('Cancel','nav(4)'):'')+'<div class="layoutbill"><section class="panel"><h2>Select products and services</h2><input placeholder="Search for a product or service…" aria-label="Search products and services" oninput="catalog(this.value)"><div id="catalog"></div><hr><h3>Custom service</h3><form id="custom">'+field('name','Service name','','required maxlength="100"')+field('price','Price (₹)','','required min="0" max="99999999" step=".01"','number')+'<button>Add to bill</button></form></section><section class="panel"><h2>Bill details</h2><div id="lines"></div><form id="checkout"><input type="hidden" name="customerKey" value="'+esc(draft.customerKey||'')+'"><div class="formgrid">'+field('name','Customer name',draft.name,'required maxlength="100"')+field('phone','Mobile number (optional)',draft.phone,'pattern="[0-9]{10}" title="Enter a 10-digit mobile number" inputmode="numeric"','tel')+billAddressFields()+ownerField(draft.ownerId)+'<label>Payment mode<select name="mode">'+options(['Cash','COD','UPI'],draft.mode)+'</select></label>'+field('paid','Amount paid (₹)',draft.paid??'','min="0" step=".01"','number')+'</div>'+'<p id="due"></p><button class="primary">'+(correction?'Save corrections':'Create invoice')+'</button></form></section></div>'}
+function bill(){return heading(correction?'Edit invoice · '+esc(correction.original.no):'New Bill', correction?button('Cancel','nav(4)'):'')+'<div class="layoutbill"><section class="panel"><h2>Select products and services</h2><input placeholder="Search for a product or service…" aria-label="Search products and services" oninput="catalog(this.value)"><select id="catalog" aria-label="Select a product or service" onchange="pickCatalog(this)"></select><hr><h3>Custom service</h3><form id="custom">'+field('name','Service name','','required maxlength="100"')+field('price','Price (₹)','','required min="0" max="99999999" step=".01"','number')+'<button>Add to bill</button></form></section><section class="panel"><h2>Bill details</h2><div id="lines"></div><form id="checkout"><input type="hidden" name="customerKey" value="'+esc(draft.customerKey||'')+'"><div class="formgrid">'+field('name','Customer name',draft.name,'required maxlength="100"')+field('phone','Mobile number (optional)',draft.phone,'pattern="[0-9]{10}" title="Enter a 10-digit mobile number" inputmode="numeric"','tel')+billAddressFields()+ownerField(draft.ownerId)+'<label>Payment mode<select name="mode">'+options(['Cash','COD','UPI'],draft.mode)+'</select></label>'+field('paid','Amount paid (₹)',draft.paid??'','min="0" step=".01"','number')+'</div>'+'<p id="due"></p><button class="primary">'+(correction?'Save corrections':'Create invoice')+'</button></form></section></div>'}
 function catalog(q='') {
   const term=q.trim().toLowerCase();
-  const stock=state.products.filter(p=>productMatches(p,term)).map(p=>
-    '<div class="listrow"><div>'+esc(p.name)+productDescription(p)+'<small>'+money(p.price)+' · '+esc(p.cat)+'</small></div>'+button('Add',"addItem('"+p.id+"')")+'</div>');
-  const services=[];
-  if(term) masterGroups.forEach((group,g)=>group.services.forEach((item,i)=>{
-    if(item.name.toLowerCase().includes(term))services.push('<div class="listrow"><div>'+esc(item.name)+'<small>'+esc(group.title)+' · '+rateLabel(item)+'</small></div>'+button('Select','chooseService('+g+','+i+')')+'</div>');
-  }));
-  $('#catalog').innerHTML=[...stock,...services].join('')||empty('box',term?'No matches. You can add a custom service.':'Type a service name to add it to this bill.');
+  const groupOptions=(label,options)=>options.length?'<optgroup label="'+esc(label)+'">'+options.join('')+'</optgroup>':'';
+  const stock=state.products.filter(p=>productMatches(p,term)).map(p=>'<option value="p:'+esc(p.id)+'">'+esc(p.name)+' · '+money(p.price)+'</option>');
+  let groups=groupOptions('Shop inventory',stock);
+  masterGroups.forEach((group,g)=>{
+    const items=[];
+    group.services.forEach((item,i)=>{
+      if((group.title+' '+item.name).toLowerCase().includes(term)) items.push('<option value="s:'+g+':'+i+'">'+esc(item.name)+' · '+esc(rateLabel(item))+'</option>');
+    });
+    groups+=groupOptions(group.title,items);
+  });
+  $('#catalog').innerHTML='<option value="">'+(groups?'Select a product or service':'No matching items')+'</option>'+groups;
+}
+function pickCatalog(select) {
+  const [type,key,index]=select.value.split(':');
+  select.value='';
+  if(type==='p') addItem(key);
+  if(type==='s') chooseService(Number(key),Number(index));
 }
 function addItem(key){let p=state.products.find(x=>x.id===key),l=cart.find(x=>x.product===key);if(!p)return notify('This product is no longer listed');if(p.stock!==null&&(l?.qty||0)>=p.stock+(correction?productUnits(correction.original.lines,key):0))return notify('Insufficient stock');if(l)l.qty++;else cart.push({product:key,name:p.name,price:p.price,qty:1,sourceName:p.name,sourcePrice:p.price});lines()}
 const total=()=>cart.reduce((n,l)=>n+l.price*l.qty,0);
 function lines(){ if(!cart.some(l=>l.pvc)) cart=cart.filter(l=>!l.delivery); $('#lines').innerHTML=cart.map((l,i)=>'<div class="listrow"><div>'+esc(l.name)+lineDetails(l)+'<small>'+money(l.price)+' × '+bn(l.qty)+'</small></div><div>'+button('Edit','editBillLine('+i+')')+' '+button('−','adjust('+i+',-1)')+' '+(l.delivery?'':button('+','adjust('+i+',1)'))+'</div></div>').join('')+deliveryControl()+'<h3>Total '+money(total())+'</h3>';due()}
 function adjust(i,d){if(cart[i].delivery){if(d<0)setDelivery('0');return}if(d===1&&cart[i].product)return addItem(cart[i].product);cart[i].qty+=d;if(!cart[i].qty)cart.splice(i,1);lines()}
 function due(){let p=$('#checkout').elements.paid;p.max=total()/100;$('#due').textContent='Balance due '+money(total()-Math.round((Number(p.value)||0)*100))}
-function commitBill(data,sale){if(!sale.lines.length)throw Error('Add at least one item');if(sale.paid>sale.total)throw Error('Amount paid exceeds the bill total');for(let l of sale.lines){if(!l.product)continue;let p=data.products.find(p=>p.id===l.product);if(!p||p.price!==(l.sourcePrice??l.price)||p.name!==(l.sourceName??l.name))throw Error('The product has changed. Remove it and add it again.');if(p.stock!==null){if(p.stock<l.qty)throw Error(l.name+' Insufficient stock');p.stock-=l.qty}}sale.no='TT-'+String(data.sales.length+1).padStart(5,'0');sale.shop={...data.shop};data.sales.push(sale)}
+function commitBill(data,sale){if(!sale.lines.length)throw Error('Add at least one item');if(sale.paid>sale.total)throw Error('Amount paid exceeds the bill total');for(let l of sale.lines){if(!l.product)continue;let p=data.products.find(p=>p.id===l.product);if(!p||p.price!==(l.sourcePrice??l.price)||p.name!==(l.sourceName??l.name))throw Error('The product has changed. Remove it and add it again.');if(p.stock!==null){if(p.stock<l.qty)throw Error(l.name+' Insufficient stock');p.stock-=l.qty}}data.lastInvoiceNumber=highestInvoiceNumber(data)+1;sale.no='TT-'+String(data.lastInvoiceNumber).padStart(5,'0');sale.shop={...data.shop};data.sales.push(sale)}
 function bindBill(){bindPinLookup($("#checkout"));catalog();lines();$('#custom').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target);try{cart.push({product:null,name:required(f,'name'),price:paise(f.get('price')),qty:1});lines();e.target.reset()}catch(err){notify(err.message)}};$('#checkout').oninput=e=>{draft=Object.fromEntries(new FormData(e.currentTarget));due()};$('#checkout').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let sale={id:id(),at:new Date().toISOString(),customerKey:f.get('customerKey')||null,name:required(f,'name'),ownerId:billingOwner(f),phone:f.get('phone'),address:f.get('address').trim(),addressParts:readAddress(f),mode:f.get('mode'),paid:paise(f.get('paid')),total:total(),lines:structuredClone(cart)};const original=correction?.original;await change(d=>original?correctSale(d,original,sale):commitBill(d,sale));if(original){endCorrection()}else{cart=[];draft={}}nav(4);showSale(original?.id??sale.id)})}}
 function billAddressFields(values=draft) {
   const text = (key, label, limit = 100) => field(key,label,values[key],'maxlength="'+limit+'"');
@@ -135,12 +145,12 @@ function receipt(sale) {
     row('Paid', money(sale.paid)) + row('Balance due', money(sale.total - sale.paid)) +
     '</div></div></article>';
 }
-function showSale(key){let s=state.sales.find(s=>s.id===key),html=receipt(s);$('#paper').innerHTML=html;dialog('<div class="title">'+button('A4 Print / PDF','window.print()','primary')+button('Edit invoice',"beginCorrection('"+s.id+"')")+closeBtn+'</div>'+html)}
-function historyView(key){let c=customers().find(c=>c.key===key);dialog('<div class="title"><h2>'+esc(c.name)+'</h2>'+closeBtn+'</div><p>'+esc(c.phone||(c.sales[0]?.no || 'New Customer'))+' · Total due '+money(c.due)+'</p>'+postalBlock(c)+'<div class="actions">'+button('New Bill',"contactBill('"+key+"')")+button('Edit',"contactForm('"+key+"')")+button('Delete personal details',"removeContact('"+key+"')")+'</div>'+c.sales.map(saleRow).join(''))}
+function showSale(key){let s=state.sales.find(s=>s.id===key),html=receipt(s);$('#paper').innerHTML=html;dialog('<div class="title">'+button('A4 Print / PDF','window.print()','primary')+button('Edit invoice',"beginCorrection('"+s.id+"')")+(s.customerRemoved?button('Delete invoice',"eraseAnonymousBill('"+s.id+"')"):'')+closeBtn+'</div>'+html)}
+function historyView(key){let c=customers().find(c=>c.key===key);dialog('<div class="title"><h2>'+esc(c.name)+'</h2>'+closeBtn+'</div><p>'+esc(c.phone||(c.sales[0]?.no || 'New Customer'))+' · Total due '+money(c.due)+'</p>'+postalBlock(c)+'<div class="actions">'+button('New Bill',"contactBill('"+key+"')")+button('Edit',"contactForm('"+key+"')")+button('Delete customer and all bills',"removeContact('"+key+"')")+'</div>'+c.sales.map(saleRow).join(''))}
 function backup(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({version:1,data:state})],{type:'application/json'}));a.download='tarafdar-'+dateKey(new Date())+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 const validId=k=>typeof k==='string'&&/^[a-f0-9-]{36}$/i.test(k),nat=n=>Number.isSafeInteger(n)&&n>=0,str=s=>typeof s==='string',logo=s=>s===''||typeof s==='string'&&/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(s),profile=p=>p&&['name','phone','web','address','email'].every(k=>str(p[k]))&&(p.phone2===undefined||str(p.phone2))&&logo(p.logo);
 function validData(d){return d&&(!d.contacts||(Array.isArray(d.contacts)&&d.contacts.every(c=>validId(c.id)&&str(c.name)&&str(c.address)&&(c.phone===''||/^\d{10}$/.test(c.phone)))))&&(!d.retiredProducts||(Array.isArray(d.retiredProducts)&&d.retiredProducts.every(p=>validId(p.id)&&(p.stock===null||nat(p.stock)))))&&profile(d.shop)&&Array.isArray(d.products)&&Array.isArray(d.sales)&&d.products.every(p=>validId(p.id)&&str(p.name)&&(p.description===undefined||str(p.description))&&cats.includes(p.cat)&&nat(p.price)&&(p.stock===null||nat(p.stock))&&nat(p.limit)&&logo(p.logo))&&d.sales.every(s=>validId(s.id)&&str(s.name)&&str(s.address)&&(s.addressParts===undefined||(s.addressParts&&addressKeys.every(k=>str(s.addressParts[k]))))&&(s.phone===''||(str(s.phone)&&/^\d{10}$/.test(s.phone)))&&/^TT-\d+$/.test(s.no)&&Number.isFinite(Date.parse(s.at))&&profile(s.shop)&&['Cash','COD','UPI'].includes(s.mode)&&nat(s.paid)&&nat(s.total)&&s.paid<=s.total&&Array.isArray(s.lines)&&s.lines.length&&s.lines.every(l=>(l.product===null||validId(l.product))&&str(l.name)&&nat(l.price)&&nat(l.qty)&&l.qty>0)&&s.lines.reduce((n,l)=>n+l.price*l.qty,0)===s.total)}
-async function restore(input){try{let b=JSON.parse(await input.files[0].text());if(b.version!==1||!validData(b.data))throw Error('Choose a valid backup');if(!confirm('Replace the current ledger with this backup?'))return;await change(d=>Object.assign(d,{contacts:[],retiredProducts:[]},b.data));cart=[];draft={};render();notify('Backup restored')}catch(e){alert(e.message)}finally{input.value=''}}
+async function restore(input){try{let b=JSON.parse(await input.files[0].text());if(b.version!==1||!validData(b.data))throw Error('Choose a valid backup');if(!confirm('Replace the current ledger with this backup?'))return;await change(d=>Object.assign(d,{contacts:[],retiredProducts:[],lastInvoiceNumber:0},b.data));cart=[];draft={};render();notify('Backup restored')}catch(e){alert(e.message)}finally{input.value=''}}
 function render(){$('#nav').innerHTML=pages.map((p,i)=>(i===0?'<div class="navlabel">Main menu</div>':i===5?'<div class="navlabel">Management</div>':'')+button(ic(icons[i])+p,'nav('+i+')',page===i?'active':'')).join('');$('#crumb').textContent='Shop management  /  '+pages[page];$('#today').textContent=date(Date.now());$('#main').innerHTML=page===0?dashboard():page===1?bill():page===5?settings():heading(pages[page],page===2?button(ic('plus')+' New item','product()','primary'):page===3?button('New Customer','contactForm()','primary'):'')+(page===2?masterPanel():'')+'<section class="panel">'+searchBar(page===2)+'<div id="list">'+list()+'</div></section>';if(page===2)showPriceList(0);if(page===1)bindBill();if(page===5)$('#profile').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let shop={...Object.fromEntries(f),name:required(f,'name'),printStorefront:f.has('printStorefront'),logo:await upload(f.get('logo'),state.shop.logo)};await change(d=>d.shop=shop);notify('Shop details saved')})}}
 $('#menu').onclick=()=>$('aside').classList.toggle('open');
 
@@ -1128,9 +1138,9 @@ function contactForm(key) {
 }
 async function removeContact(key) {
   const c=customers().find(entry=>entry.key===key);
-  if(!c || !confirm('Remove '+c.name+'’s name, mobile number and address from the ledger and '+bn(c.sales.length)+' linked invoices? Invoice totals and balances will be retained.'))return;
+  if(!c || !confirm('Permanently delete '+c.name+' and all '+bn(c.sales.length)+' linked invoices? Billed: '+money(c.sales.reduce((n,s)=>n+s.total,0))+'. Outstanding: '+money(c.due)+'. These amounts will be removed from the dashboard. Stock on hand stays as recorded.'))return;
   try {
-    await change(data=>updateContact(data,c,null));
+    await change(data=>eraseCustomer(data,c));
     if(draft.customerKey===key || (c.phone && draft.phone===c.phone) || (correction && c.sales.some(s=>s.id===correction.original.id)))draft={};
     finishManagement();
   } catch(error){alert(error.message)}
@@ -1207,3 +1217,28 @@ function bindPinLookup(form) {
   });
 }
 
+
+function highestInvoiceNumber(data) {
+  return data.sales.reduce((max,sale)=>Math.max(max,Number(sale.no.slice(3))),nat(data.lastInvoiceNumber)?data.lastInvoiceNumber:0);
+}
+function eraseCustomer(data,snapshot) {
+  const current=customers(data).find(c=>c.key===snapshot.key);
+  if(!current || JSON.stringify(current)!==JSON.stringify(snapshot)) throw Error('The ledger changed. Reopen the customer before deleting.');
+  const ids=new Set(current.sales.map(sale=>sale.id));
+  data.lastInvoiceNumber=highestInvoiceNumber(data);
+  data.sales=data.sales.filter(sale=>!ids.has(sale.id));
+  data.contacts=(data.contacts||[]).filter(contact=>(contact.phone||contact.id)!==current.key);
+}
+async function eraseAnonymousBill(key) {
+  const sale=state.sales.find(s=>s.id===key && s.customerRemoved);
+  if(!sale || !confirm('Permanently delete '+sale.no+' and remove its amounts from the dashboard? Stock on hand stays as recorded.'))return;
+  try {
+    await change(data=>{
+      const current=data.sales.find(s=>s.id===key);
+      if(!current?.customerRemoved || JSON.stringify(current)!==JSON.stringify(sale))throw Error('Invoice changed. Reopen the receipt.');
+      data.lastInvoiceNumber=highestInvoiceNumber(data);
+      data.sales=data.sales.filter(s=>s.id!==key);
+    });
+    finishManagement();
+  } catch(error){alert(error.message)}
+}
