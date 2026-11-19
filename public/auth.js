@@ -1,22 +1,63 @@
 'use strict';
-// Sessions are held only in memory. Reloading the page requires a new login.
+// Keep the session in this tab across reloads. Never store the password.
 let accessToken = '';
 let revision = 0;
 let saving = false;
-let expiryTimer;
+let currentSession = null;
+let refreshing = null;
+const sessionKey = 'tarafdar-admin:' + shopBackend.url;
 const loginForm = document.getElementById('loginForm');
 const loginStatus = document.getElementById('loginStatus');
 const configured = /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(shopBackend.url)
   && shopBackend.publishableKey.startsWith('sb_publishable_');
 
+function remember(session) {
+  if (!session.access_token || !session.refresh_token) throw Error('সেশন পাওয়া যায়নি।');
+  const next = {
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+    expires_at: session.expires_at || Math.floor(Date.now()/1000) + session.expires_in
+  };
+  sessionStorage.setItem(sessionKey, JSON.stringify(next));
+  currentSession = next;
+  accessToken = next.access_token;
+}
+
+function forget() {
+  sessionStorage.removeItem(sessionKey);
+  currentSession = null;
+  accessToken = '';
+}
+
+async function refreshSession() {
+  const previous = currentSession;
+  const response = await fetch(shopBackend.url + '/auth/v1/token?grant_type=refresh_token', {
+    method: 'POST', headers: {apikey: shopBackend.publishableKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({refresh_token: previous.refresh_token}), cache: 'no-store', redirect: 'error'
+  });
+  if (currentSession !== previous) throw Error('সেশন বদলেছে।');
+  if (!response.ok) {
+    if ([400,401,403].includes(response.status)) {
+      forget();
+      location.reload();
+    }
+    throw Error('সেশন নবীকরণ করা যায়নি। সংযোগ পরীক্ষা করুন।');
+  }
+  const session = await response.json();
+  if (currentSession === previous) remember(session);
+}
 async function request(path, options = {}) {
+  if (path.startsWith('/rest/') && currentSession && currentSession.expires_at * 1000 <= Date.now()+60000) {
+    if (!refreshing) refreshing = refreshSession().finally(() => { refreshing = null; });
+    await refreshing;
+  }
   const headers = { apikey: shopBackend.publishableKey, ...options.headers };
   if (accessToken) headers.Authorization = 'Bearer ' + accessToken;
   if (options.body) headers['Content-Type'] = 'application/json';
   const response = await fetch(shopBackend.url + path, {
     ...options, headers, cache: 'no-store', credentials: 'omit', redirect: 'error'
   });
-  if (response.status === 401 && accessToken) location.reload();
+  if (response.status === 401 && path.startsWith('/rest/')) { forget(); location.reload(); }
   if (!response.ok) throw Error('অনুরোধ সফল হয়নি। সংযোগ এবং অ্যাকাউন্টের অনুমতি পরীক্ষা করুন।');
   return response;
 }
@@ -59,6 +100,14 @@ async function change(update) {
     saving = false;
   }
 }
+async function showShop() {
+  await readShop();
+  render();
+  loginForm.reset();
+  loginStatus.textContent = '';
+  document.getElementById('gate').hidden = true;
+  document.getElementById('layout').hidden = false;
+}
 loginForm.onsubmit = async event => {
   event.preventDefault();
   const button = loginForm.querySelector('button');
@@ -70,15 +119,10 @@ loginForm.onsubmit = async event => {
       method: 'POST', body: JSON.stringify({ email: fields.get('email').trim(), password: fields.get('password') })
     });
     const session = await response.json();
-    accessToken = session.access_token;
-    await readShop();
-    render();
-    loginForm.reset();
-    document.getElementById('gate').hidden = true;
-    document.getElementById('layout').hidden = false;
-    expiryTimer = setTimeout(() => location.reload(), session.expires_in * 1000);
+    remember(session);
+    await showShop();
   } catch (error) {
-    accessToken = '';
+    forget();
     loginStatus.textContent = error.message + ' ইমেল ও পাসওয়ার্ড যাচাই করুন।';
   } finally {
     button.disabled = false;
@@ -89,11 +133,29 @@ document.getElementById('logout').onclick = async () => {
   document.getElementById('modal').close();
   document.getElementById('layout').hidden = true;
   document.getElementById('paper').replaceChildren();
-  try { await request('/auth/v1/logout?scope=local', { method: 'POST', signal: AbortSignal.timeout(5000) }); }
-  finally { clearTimeout(expiryTimer); location.reload(); }
+  const token = accessToken;
+  forget();
+  try { await request('/auth/v1/logout?scope=local', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(5000) }); }
+  finally { location.reload(); }
 };
 if (!configured) {
   loginForm.querySelector('button').disabled = true;
   loginStatus.textContent = 'প্রথম সেটআপ বাকি। config.js-এ Supabase Project URL ও Publishable key দিন।';
+}
+if (configured) restoreLogin();
+async function restoreLogin() {
+  const button = loginForm.querySelector('button');
+  button.disabled = true;
+  try {
+    const saved = sessionStorage.getItem(sessionKey);
+    if (!saved) return;
+    remember(JSON.parse(saved));
+    loginStatus.textContent = 'আগের সেশন খুলছে…';
+    await showShop();
+  } catch (error) {
+    loginStatus.textContent = 'খাতা খোলা যায়নি। সংযোগ দেখে রিফ্রেশ করুন বা আবার লগইন করুন।';
+  } finally {
+    button.disabled = false;
+  }
 }
 window.addEventListener('pageshow', event => { if (event.persisted) location.reload(); });
