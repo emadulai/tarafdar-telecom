@@ -41,8 +41,8 @@ function required(f,k){let v=String(f.get(k)||'').trim();if(!v)throw Error('প�
 function paise(n){let v=Math.round(Number(n)*100);if(!Number.isSafeInteger(v)||v<0)throw Error('সঠিক টাকা লিখুন');return v}
 async function submit(form,fn){let b=form.querySelector('button.primary');if(b.disabled)return;b.disabled=true;try{await fn(new FormData(form))}catch(e){alert(e.message)}finally{b.disabled=false}}
 async function upload(file,old){if(!file?.size)return old||'';if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>5000000)throw Error('৫ MB-এর মধ্যে PNG, JPG বা WebP লোগো দিন');let img=await createImageBitmap(file),scale=Math.min(1,180/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);img.close();return c.toDataURL('image/png')}
-function settings(){let s=state.shop;return heading('দোকানের সেটিংস')+'<section class="panel"><h2>রসিদের জন্য দোকানের তথ্য</h2><form id="profile"><div class="formgrid">'+field('name','দোকানের নাম',s.name,'required')+field('phone','মোবাইল নম্বর ১',s.phone,'','tel')+field('phone2','মোবাইল নম্বর ২ (ঐচ্ছিক)',s.phone2,'','tel')+field('email','ইমেল',s.email,'','email')+field('web','ওয়েবসাইট',s.web)+field('address','দোকানের ঠিকানা',s.address)+field('receiptNote','সব নতুন রসিদের নিচের লেখা',s.receiptNote??defaultReceiptNote,'maxlength="500"')+'<label>দোকানের লোগো<input name="logo" type="file" accept="image/png,image/jpeg,image/webp"></label><label class="full storefront-choice"><input type="checkbox" name="printStorefront" '+(s.printStorefront!==false?'checked':'')+'> রসিদে ড্যাশবোর্ডের দোকানের ছবি দেখান</label></div><button class="primary">সংরক্ষণ করুন</button></form></section><br><section class="panel"><h2>হিসাবের ব্যাকআপ</h2><p>হিসাব আপনার অ্যাডমিন অ্যাকাউন্টের ডেটাবেসে থাকে। নিয়মিত ব্যাকআপ ডাউনলোড করুন।</p><div class="actions">'+button('ব্যাকআপ ডাউনলোড','backup()')+'<label>ব্যাকআপ ফেরান<input type="file" accept=".json" onchange="restore(this)"></label></div></section>'}
-function bill(){return heading(correction?'বিল সংশোধন · '+esc(correction.original.no):'নতুন বিল', correction?button('বাতিল','nav(4)'):'')+'<div class="layoutbill"><section class="panel"><h2>পণ্য ও সার্ভিস বাছুন</h2>'+masterPanel()+'<h3>নিজস্ব পণ্য ও স্টক</h3><input placeholder="পণ্য বা সার্ভিস খুঁজুন…" aria-label="পণ্য খুঁজুন" oninput="catalog(this.value)"><div id="catalog"></div><hr><h3>কাস্টম সার্ভিস</h3><form id="custom">'+field('name','সার্ভিসের নাম','','required maxlength="100"')+field('price','দাম (₹)','','required min="0" max="99999999" step=".01"','number')+'<button>বিলে যোগ করুন</button></form></section><section class="panel"><h2>বিলের বিবরণ</h2><div id="lines"></div><form id="checkout"><div class="formgrid">'+field('name','কাস্টমারের নাম',draft.name,'required maxlength="100"')+field('phone','মোবাইল নম্বর (ঐচ্ছিক)',draft.phone,'pattern="[0-9]{10}" title="১০ সংখ্যার মোবাইল নম্বর" inputmode="numeric"','tel')+billAddressFields()+ownerField(draft.ownerId)+'<label>পেমেন্ট মোড<select name="mode">'+options(['Cash','COD','UPI'],draft.mode)+'</select></label>'+field('paid','পরিশোধিত টাকা (₹)',draft.paid??'','min="0" step=".01"','number')+'</div>'+field('receiptNote','রসিদের নিচের লেখা',draft.receiptNote??state.shop.receiptNote??defaultReceiptNote,'maxlength="500"')+'<p id="due"></p><button class="primary">'+(correction?'সংশোধন সংরক্ষণ করুন':'ইনভয়েস তৈরি করুন')+'</button></form></section></div>'}
+function settings(){let s=state.shop;return heading('দোকানের সেটিংস')+'<section class="panel"><h2>রসিদের জন্য দোকানের তথ্য</h2><form id="profile"><div class="formgrid">'+field('name','দোকানের নাম',s.name,'required')+field('phone','মোবাইল নম্বর ১',s.phone,'','tel')+field('phone2','মোবাইল নম্বর ২ (ঐচ্ছিক)',s.phone2,'','tel')+field('email','ইমেল',s.email,'','email')+field('web','ওয়েবসাইট',s.web)+field('address','দোকানের ঠিকানা',s.address)+'<label>দোকানের লোগো<input name="logo" type="file" accept="image/png,image/jpeg,image/webp"></label><label class="full storefront-choice"><input type="checkbox" name="printStorefront" '+(s.printStorefront!==false?'checked':'')+'> রসিদে ড্যাশবোর্ডের দোকানের ছবি দেখান</label></div><button class="primary">সংরক্ষণ করুন</button></form></section><br><section class="panel"><h2>হিসাবের ব্যাকআপ</h2><p>হিসাব আপনার অ্যাডমিন অ্যাকাউন্টের ডেটাবেসে থাকে। নিয়মিত ব্যাকআপ ডাউনলোড করুন।</p><div class="actions">'+button('ব্যাকআপ ডাউনলোড','backup()')+'<label>ব্যাকআপ ফেরান<input type="file" accept=".json" onchange="restore(this)"></label></div></section>'}
+function bill(){return heading(correction?'বিল সংশোধন · '+esc(correction.original.no):'নতুন বিল', correction?button('বাতিল','nav(4)'):'')+'<div class="layoutbill"><section class="panel"><h2>পণ্য ও সার্ভিস বাছুন</h2>'+masterPanel()+'<h3>নিজস্ব পণ্য ও স্টক</h3><input placeholder="পণ্য বা সার্ভিস খুঁজুন…" aria-label="পণ্য খুঁজুন" oninput="catalog(this.value)"><div id="catalog"></div><hr><h3>কাস্টম সার্ভিস</h3><form id="custom">'+field('name','সার্ভিসের নাম','','required maxlength="100"')+field('price','দাম (₹)','','required min="0" max="99999999" step=".01"','number')+'<button>বিলে যোগ করুন</button></form></section><section class="panel"><h2>বিলের বিবরণ</h2><div id="lines"></div><form id="checkout"><div class="formgrid">'+field('name','কাস্টমারের নাম',draft.name,'required maxlength="100"')+field('phone','মোবাইল নম্বর (ঐচ্ছিক)',draft.phone,'pattern="[0-9]{10}" title="১০ সংখ্যার মোবাইল নম্বর" inputmode="numeric"','tel')+billAddressFields()+ownerField(draft.ownerId)+'<label>পেমেন্ট মোড<select name="mode">'+options(['Cash','COD','UPI'],draft.mode)+'</select></label>'+field('paid','পরিশোধিত টাকা (₹)',draft.paid??'','min="0" step=".01"','number')+'</div>'+'<p id="due"></p><button class="primary">'+(correction?'সংশোধন সংরক্ষণ করুন':'ইনভয়েস তৈরি করুন')+'</button></form></section></div>'}
 function catalog(q=''){let ps=state.products.filter(p=>productMatches(p,q.toLowerCase()));$('#catalog').innerHTML=ps.map(p=>'<div class="listrow"><div>'+esc(p.name)+productDescription(p)+'<small>'+money(p.price)+' · '+esc(p.cat)+'</small></div>'+button('যোগ করুন',"addItem('"+p.id+"')")+'</div>').join('')||empty('box','পণ্য ও সার্ভিস বিভাগে আইটেম যোগ করুন বা কাস্টম সার্ভিস লিখুন।')}
 function addItem(key){let p=state.products.find(x=>x.id===key),l=cart.find(x=>x.product===key);if(!p)return notify('পণ্যটি আর তালিকায় নেই');if(p.stock!==null&&(l?.qty||0)>=p.stock+(correction?productUnits(correction.original.lines,key):0))return notify('পর্যাপ্ত স্টক নেই');if(l)l.qty++;else cart.push({product:key,name:p.name,price:p.price,qty:1,sourceName:p.name,sourcePrice:p.price});lines()}
 const total=()=>cart.reduce((n,l)=>n+l.price*l.qty,0);
@@ -50,7 +50,7 @@ function lines(){ if(!cart.some(l=>l.pvc)) cart=cart.filter(l=>!l.delivery); $('
 function adjust(i,d){if(cart[i].delivery){if(d<0)setDelivery('0');return}if(d===1&&cart[i].product)return addItem(cart[i].product);cart[i].qty+=d;if(!cart[i].qty)cart.splice(i,1);lines()}
 function due(){let p=$('#checkout').elements.paid;p.max=total()/100;$('#due').textContent='বাকি '+money(total()-Math.round((Number(p.value)||0)*100))}
 function commitBill(data,sale){if(!sale.lines.length)throw Error('বিলে অন্তত একটি আইটেম যোগ করুন');if(sale.paid>sale.total)throw Error('পরিশোধিত টাকা মোট বিলের চেয়ে বেশি');for(let l of sale.lines){if(!l.product)continue;let p=data.products.find(p=>p.id===l.product);if(!p||p.price!==(l.sourcePrice??l.price)||p.name!==(l.sourceName??l.name))throw Error('পণ্য বদলেছে। বিল থেকে বাদ দিয়ে আবার যোগ করুন।');if(p.stock!==null){if(p.stock<l.qty)throw Error(l.name+' পর্যাপ্ত স্টক নেই');p.stock-=l.qty}}sale.no='TT-'+String(data.sales.length+1).padStart(5,'0');sale.shop={...data.shop};data.sales.push(sale)}
-function bindBill(){bindMaster();catalog();lines();$('#custom').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target);try{cart.push({product:null,name:required(f,'name'),price:paise(f.get('price')),qty:1});lines();e.target.reset()}catch(err){notify(err.message)}};$('#checkout').oninput=e=>{draft=Object.fromEntries(new FormData(e.currentTarget));due()};$('#checkout').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let sale={id:id(),at:new Date().toISOString(),name:required(f,'name'),ownerId:billingOwner(f),phone:f.get('phone'),address:f.get('address').trim(),addressParts:readAddress(f),receiptNote:String(f.get('receiptNote')??'').trim(),mode:f.get('mode'),paid:paise(f.get('paid')),total:total(),lines:structuredClone(cart)};const original=correction?.original;await change(d=>original?correctSale(d,original,sale):commitBill(d,sale));if(original){endCorrection()}else{cart=[];draft={}}nav(4);showSale(original?.id??sale.id)})}}
+function bindBill(){bindMaster();catalog();lines();$('#custom').onsubmit=e=>{e.preventDefault();let f=new FormData(e.target);try{cart.push({product:null,name:required(f,'name'),price:paise(f.get('price')),qty:1});lines();e.target.reset()}catch(err){notify(err.message)}};$('#checkout').oninput=e=>{draft=Object.fromEntries(new FormData(e.currentTarget));due()};$('#checkout').onsubmit=async e=>{e.preventDefault();await submit(e.target,async f=>{let sale={id:id(),at:new Date().toISOString(),name:required(f,'name'),ownerId:billingOwner(f),phone:f.get('phone'),address:f.get('address').trim(),addressParts:readAddress(f),mode:f.get('mode'),paid:paise(f.get('paid')),total:total(),lines:structuredClone(cart)};const original=correction?.original;await change(d=>original?correctSale(d,original,sale):commitBill(d,sale));if(original){endCorrection()}else{cart=[];draft={}}nav(4);showSale(original?.id??sale.id)})}}
 function billAddressFields() {
   const text = (key, label, limit = 100) =>
     field(key, label, draft[key], 'maxlength="' + limit + '"');
@@ -101,9 +101,9 @@ function receipt(sale) {
     '</b></div></div><table><colgroup><col style="width:7%"><col><col style="width:12%">' +
     '<col style="width:19%"><col style="width:21%"></colgroup><thead><tr><th>ক্রম</th><th>পণ্য / সার্ভিস</th>' +
     '<th>সংখ্যা</th><th>দর</th><th>টাকা</th></tr></thead><tbody>' + items +
-    '</tbody></table><div class="invoice-totals">' + row('মোট বিল', money(sale.total)) +
+    '</tbody></table><div class="receipt-settlement">' + signatureFooter(sale) + '<div class="invoice-totals">' + row('মোট বিল', money(sale.total)) +
     row('পরিশোধিত', money(sale.paid)) + row('বাকি', money(sale.total - sale.paid)) +
-    '</div>' + (sale.receiptNote ? '<p style="clear:both;border-top:1px solid #afc3da;margin-top:1.5rem;padding:.65rem 0;font-size:10pt;text-align:center;overflow-wrap:anywhere;break-inside:avoid">' + esc(sale.receiptNote) + '</p>' : '') + signatureFooter(sale) + '</article>';
+    '</div></div><p class="receipt-reminder">দোকান ছাড়ার আগে বিলটি মিলিয়ে নিন। কোনো সমস্যা বা অভিযোগ থাকলে এই বিলটি সঙ্গে আনুন।</p></article>';
 }
 function showSale(key){let s=state.sales.find(s=>s.id===key),html=receipt(s);$('#paper').innerHTML=html;dialog('<div class="title">'+button('A4 প্রিন্ট / PDF','window.print()','primary')+button('বিল সংশোধন',"beginCorrection('"+s.id+"')")+closeBtn+'</div>'+html)}
 function historyView(key){let c=customers().find(c=>c.key===key);dialog('<div class="title"><h2>'+esc(c.name)+'</h2>'+closeBtn+'</div><p>'+esc(c.phone||c.sales[0].no)+' · মোট বাকি '+money(c.due)+'</p><small>'+esc(addressLines(c.sales[0]).join(', '))+'</small>'+c.sales.map(saleRow).join(''))}
@@ -932,7 +932,6 @@ function shopRevenue(sale) {
   return sale.total-sale.lines.reduce((n,l)=>n+(l.principal||0)*l.qty,0);
 }
 
-const defaultReceiptNote = 'পিভিসি কার্ড, ব্যাংকিং সহায়তা, ডিজিটাল পরিষেবা, জেরক্স, অনলাইন আবেদন ও বিল পেমেন্টের জন্য তরফদার টেলিকমে আসুন। ধন্যবাদ।';
 
 function lineDetails(line) {
   if (!line.transactionAmount) return '';
@@ -972,7 +971,7 @@ function beginCorrection(key) {
   if (!original || correction) return;
   correction = {original: structuredClone(original), pendingCart: cart, pendingDraft: draft};
   cart = structuredClone(original.lines);
-  draft = {...original, ...original.addressParts, paid: original.paid / 100, receiptNote: original.receiptNote ?? ''};
+  draft = {...original, ...original.addressParts, paid: original.paid / 100};
   $('#modal').close();
   nav(1);
 }
@@ -1026,10 +1025,24 @@ function billingOwner(form) {
 function signatureFooter(sale) {
   const owner = billingOwners.find(owner => owner.id === sale.ownerId);
   if (!owner) return '';
-  return '<section style="clear:both;break-inside:avoid;page-break-inside:avoid;padding-top:5mm">' +
-    '<div style="width:65mm;max-width:100%;margin-left:auto;text-align:center">' +
-    '<div style="height:16mm;border-bottom:1px solid #426382"></div>' +
-    '<small>বিলকারীর স্বাক্ষর</small><br><strong>'+esc(owner.name)+'</strong><br>'+esc(owner.phone)+'</div>' +
-    '<p style="border-top:1px solid #afc3da;padding-top:3mm;margin:5mm 0 0;font-size:10pt;text-align:center">' +
-    'দোকান ছাড়ার আগে বিলটি মিলিয়ে নিন। কোনো সমস্যা বা অভিযোগ থাকলে এই বিলটি সঙ্গে আনুন।</p></section>';
+  return '<div class="receipt-sign"><div class="sign-space"></div><small>বিলকারীর স্বাক্ষর</small><strong>' +
+    esc(owner.name)+'</strong><span>'+esc(owner.phone)+'</span></div>';
 }
+const receiptStyles = document.createElement('style');
+receiptStyles.textContent = `
+.invoice .receipt-meta{border-bottom:2px solid #244c74;padding:10px 0 8px}
+.invoice .receipt-meta h3{margin:0}
+.invoice .invoice-buyer{margin:14px 0;align-items:flex-start}
+.invoice .invoice-mode b,.invoice .invoice-mode small{display:block}
+.invoice th{background:#edf2f8;color:#163a63}
+.invoice td:nth-child(n+3),.invoice .invoice-totals b{font-variant-numeric:tabular-nums}
+.receipt-settlement{display:flex;align-items:flex-end;justify-content:space-between;gap:5%;margin:6mm 0;break-inside:avoid}
+.receipt-settlement .invoice-totals{width:48%;margin:0 0 0 auto}
+.receipt-settlement .invoice-totals>div:first-child{font-weight:bold}
+.receipt-sign{width:40%;max-width:57mm;text-align:center;font-size:10pt}
+.receipt-sign .sign-space{height:15mm;border-bottom:1px solid #697e94}
+.receipt-sign strong,.receipt-sign span{display:block}
+.invoice .receipt-reminder{border-top:1px solid #b6c6d5;margin:0;padding:3mm 0 0;text-align:center;font-size:9pt;color:#344b61;break-before:avoid;break-inside:avoid}
+@media print{.invoice .receipt-meta,.invoice .invoice-buyer{break-after:avoid}.invoice .receipt-settlement{page-break-inside:avoid}.invoice th{print-color-adjust:exact}}
+`;
+document.head.append(receiptStyles);
